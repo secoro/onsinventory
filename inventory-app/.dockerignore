@@ -1,0 +1,8 @@
+target/
+.git/
+.idea/
+*.iml
+README.md
+ARCHITECTURE.md
+DEPLOYMENT.md
+QUICKSTART.md

@@ -1,0 +1,81 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: onsinventory-caddy
+    ports:
+      - "8080:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      onsinventory-frontend:
+        condition: service_started
+      onsinventory-backend:
+        condition: service_started
+    networks:
+      - onsinventory-network
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: onsinventory-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-inventorydb}
+      POSTGRES_USER: ${POSTGRES_USER:-inventory_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-inventory_user} -d ${POSTGRES_DB:-inventorydb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - onsinventory-network
+    restart: unless-stopped
+
+  onsinventory-backend:
+    build: .
+    container_name: onsinventory-backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-inventorydb}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-inventory_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_PROFILES_ACTIVE: prod
+      APP_BOOTSTRAP_ENABLED: "true"
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://onsinventory.com,https://www.onsinventory.com}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - onsinventory-network
+    restart: unless-stopped
+
+  onsinventory-frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://api.onsinventory.com}
+    container_name: onsinventory-frontend
+    depends_on:
+      onsinventory-backend:
+        condition: service_started
+    networks:
+      - onsinventory-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+
+networks:
+  onsinventory-network:
+    driver: bridge
