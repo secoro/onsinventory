@@ -10,10 +10,12 @@ import {
   Package,
   Pencil,
   Refrigerator,
+  Search,
   Sparkles,
   Trash2,
   Undo2,
-  UtensilsCrossed
+  UtensilsCrossed,
+  X
 } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import {
@@ -94,6 +96,7 @@ export default function App() {
   const [cookResult, setCookResult] = useState<CookResult | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(4);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     getMe()
@@ -223,11 +226,29 @@ export default function App() {
   const recommendations = recommendationsQuery.data ?? [];
 
   const filteredInventory = useMemo(() => {
-    if (activeLocation === "All") {
-      return inventory;
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      return inventory.filter(
+        (item) =>
+          item.name.toLowerCase().includes(q) ||
+          item.category.toLowerCase().includes(q) ||
+          (item.notes?.toLowerCase().includes(q) ?? false)
+      );
     }
+    if (activeLocation === "All") return inventory;
     return inventory.filter((item) => item.location === activeLocation);
-  }, [activeLocation, inventory]);
+  }, [searchQuery, activeLocation, inventory]);
+
+  const filteredRecipes = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return recipes;
+    return recipes.filter(
+      (recipe) =>
+        recipe.name.toLowerCase().includes(q) ||
+        (recipe.cuisine?.toLowerCase().includes(q) ?? false) ||
+        recipe.ingredients.some((ing) => ing.ingredientName.toLowerCase().includes(q))
+    );
+  }, [searchQuery, recipes]);
 
   const totalPages = Math.max(1, Math.ceil(filteredInventory.length / pageSize));
 
@@ -238,7 +259,7 @@ export default function App() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeLocation, pageSize]);
+  }, [activeLocation, pageSize, searchQuery]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -386,6 +407,26 @@ export default function App() {
           </div>
         </motion.header>
 
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Escape" && setSearchQuery("")}
+            className="w-full rounded-2xl border border-slate-800 bg-slate-900/80 py-3 pl-11 pr-10 text-slate-100 placeholder:text-slate-500 focus:border-brand-600 focus:outline-none"
+            placeholder="Search inventory and recipes..."
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 hover:text-slate-200"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
         {isLoading ? (
           <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
             Loading your kitchen dashboard...
@@ -403,22 +444,24 @@ export default function App() {
               <article className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="text-xl font-semibold">Inventory by location</h2>
-                  <div className="flex flex-wrap gap-2">
-                    {["All", ...(locationsQuery.data?.map((location) => location.name) ?? [])].map((name) => (
-                      <button
-                        key={name}
-                        type="button"
-                        onClick={() => setActiveLocation(name)}
-                        className={`rounded-lg px-3 py-1 text-sm transition ${
-                          activeLocation === name
-                            ? "bg-brand-600 text-white"
-                            : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-                        }`}
-                      >
-                        {name}
-                      </button>
-                    ))}
-                  </div>
+                  {!searchQuery && (
+                    <div className="flex flex-wrap gap-2">
+                      {["All", ...(locationsQuery.data?.map((location) => location.name) ?? [])].map((name) => (
+                        <button
+                          key={name}
+                          type="button"
+                          onClick={() => setActiveLocation(name)}
+                          className={`rounded-lg px-3 py-1 text-sm transition ${
+                            activeLocation === name
+                              ? "bg-brand-600 text-white"
+                              : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                          }`}
+                        >
+                          {name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-4 space-y-3">
@@ -733,10 +776,12 @@ export default function App() {
               <article className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
                 <h2 className="text-xl font-semibold">Recipe library</h2>
                 <div className="mt-4 space-y-3">
-                  {recipes.length === 0 ? (
-                    <p className="rounded-lg bg-slate-800/70 p-4 text-slate-300">No recipes yet. Add your first one.</p>
+                  {filteredRecipes.length === 0 ? (
+                    <p className="rounded-lg bg-slate-800/70 p-4 text-slate-300">
+                      {searchQuery ? `No recipes matching "${searchQuery}".` : "No recipes yet. Add your first one."}
+                    </p>
                   ) : (
-                    recipes.map((recipe) => (
+                    filteredRecipes.map((recipe) => (
                       <div
                         key={recipe.id}
                         onClick={() => { setSelectedRecipe(recipe); setCookResult(null); }}
