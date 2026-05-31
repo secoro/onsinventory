@@ -29,18 +29,18 @@ jobs:
         with:
           node-version: '20'
           cache: npm
-          cache-dependency-path: inventory-frontend/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Test backend
-        working-directory: inventory-app
+        working-directory: backend
         run: mvn -B test
 
       - name: Install frontend dependencies
-        working-directory: inventory-frontend
+        working-directory: frontend
         run: npm ci
 
       - name: Test frontend
-        working-directory: inventory-frontend
+        working-directory: frontend
         run: npm run test
 
       - name: Add SSH key
@@ -57,17 +57,16 @@ jobs:
         run: |
           rsync -az --delete \
             --exclude '.git' \
-            --exclude 'inventory-app/target' \
-            --exclude 'inventory-frontend/node_modules' \
-            --exclude 'inventory-frontend/dist' \
+            --exclude 'backend/target' \
+            --exclude 'frontend/node_modules' \
+            --exclude 'frontend/dist' \
             ./ "${{ secrets.PI_USER }}@${{ secrets.PI_HOST }}:${{ secrets.PI_APP_PATH }}"
 
       - name: Deploy on Raspberry Pi
         run: |
           ssh "${{ secrets.PI_USER }}@${{ secrets.PI_HOST }}" '
             set -e
-            cd "${{ secrets.PI_APP_PATH }}/inventory-app"
-            cp .env.pi.example .env.pi.tmp
+            cd "${{ secrets.PI_APP_PATH }}/backend"
             cat > .env.pi <<EOF
             POSTGRES_DB=${{ secrets.POSTGRES_DB }}
             POSTGRES_USER=${{ secrets.POSTGRES_USER }}
@@ -78,5 +77,4 @@ jobs:
             EOF
             docker compose --env-file .env.pi down
             docker compose --env-file .env.pi up -d --build
-            rm -f .env.pi.tmp
           '

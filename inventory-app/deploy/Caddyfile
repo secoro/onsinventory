@@ -1,9 +1,0 @@
-onspantry.com, www.onspantry.com {
-    encode gzip zstd
-    reverse_proxy inventory-frontend:8081
-}
-
-api.onspantry.com {
-    encode gzip zstd
-    reverse_proxy inventory-app:8080
-}

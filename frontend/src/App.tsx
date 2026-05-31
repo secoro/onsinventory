@@ -263,7 +263,7 @@ export default function App() {
         >
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-sm uppercase tracking-[0.2em] text-brand-100">OnsPantry</p>
+              <p className="text-sm uppercase tracking-[0.2em] text-brand-100">ONS Inventory</p>
               <h1 className="mt-2 text-3xl font-semibold text-white">Your kitchen, but smarter</h1>
               <p className="mt-2 text-slate-300">
                 Track pantry, fridge, and freezer stock and get recipe ideas before ingredients expire.

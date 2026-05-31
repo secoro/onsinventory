@@ -1,6 +1,6 @@
-# OnsPantry Frontend
+# OnsInventory Frontend
 
-Modern React frontend for OnsPantry.
+Modern React frontend for OnsInventory.
 
 ## Stack
 
@@ -14,7 +14,7 @@ Modern React frontend for OnsPantry.
 ## Quick start
 
 ```bash
-cd /Users/seanderoo/Repositories/Local/onspantry/frontend
+cd /Users/seanderoo/Repositories/Local/onsinventory/frontend
 cp .env.example .env
 npm install
 npm run dev
