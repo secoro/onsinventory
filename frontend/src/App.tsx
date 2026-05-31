@@ -1,10 +1,12 @@
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
   ChefHat,
   Flame,
+  KeyRound,
+  LogOut,
   Package,
   Pencil,
   Refrigerator,
@@ -17,17 +19,23 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import {
   addInventoryItem,
   addRecipe,
+  changePassword,
+  checkRecipeAvailability,
+  clearToken,
   cookRecipe,
   deleteInventoryItem,
   deleteRecipe,
   getInventory,
   getLocations,
+  getMe,
   getRecommendations,
   getRecipes,
+  login,
+  storeToken,
   updateInventoryItem
 } from "./api/client";
 import { recommendationLabel, topRecommendation } from "./lib/recommendation";
-import { CookResult, InventoryItem, Recipe, RecipeIngredient } from "./types";
+import { AuthUser, CookResult, InventoryItem, Recipe, RecipeIngredient } from "./types";
 
 const colors = ["#3b82f6", "#22c55e", "#eab308", "#ef4444", "#8b5cf6", "#14b8a6"];
 const pageSizeOptions = [4, 8, 12];
@@ -74,33 +82,68 @@ function isExpiring(item: InventoryItem): boolean {
 
 export default function App() {
   const queryClient = useQueryClient();
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const [formState, setFormState] = useState<AddItemFormState>(initialForm);
   const [recipeForm, setRecipeForm] = useState<AddRecipeFormState>(initialRecipeForm);
   const [activeLocation, setActiveLocation] = useState<string>("All");
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [selectedServings, setSelectedServings] = useState(1);
   const [cookResult, setCookResult] = useState<CookResult | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(4);
 
+  useEffect(() => {
+    getMe()
+      .then((user) => setAuthUser({ ...user, token: localStorage.getItem("auth_token") ?? "" }))
+      .catch(() => { clearToken(); setAuthUser(null); })
+      .finally(() => setAuthChecked(true));
+  }, []);
+
+  const loginMutation = useMutation({
+    mutationFn: ({ username, password }: { username: string; password: string }) => login(username, password),
+    onSuccess: (data) => {
+      storeToken(data.token);
+      setAuthUser({ username: data.username, firstName: data.firstName, token: data.token });
+    }
+  });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) =>
+      changePassword(currentPassword, newPassword),
+    onSuccess: () => setShowChangePassword(false)
+  });
+
+  const handleLogout = () => {
+    clearToken();
+    setAuthUser(null);
+    queryClient.clear();
+  };
+
   const locationsQuery = useQuery({
     queryKey: ["locations"],
-    queryFn: getLocations
+    queryFn: getLocations,
+    enabled: !!authUser
   });
 
   const inventoryQuery = useQuery({
     queryKey: ["inventory"],
-    queryFn: getInventory
+    queryFn: getInventory,
+    enabled: !!authUser
   });
 
   const recipesQuery = useQuery({
     queryKey: ["recipes"],
-    queryFn: getRecipes
+    queryFn: getRecipes,
+    enabled: !!authUser
   });
 
   const recommendationsQuery = useQuery({
     queryKey: ["recommendations"],
-    queryFn: () => getRecommendations(50)
+    queryFn: () => getRecommendations(50),
+    enabled: !!authUser
   });
 
   const addItemMutation = useMutation({
@@ -152,12 +195,26 @@ export default function App() {
     }
   });
 
+  const availabilityQuery = useQuery({
+    queryKey: ["availability", selectedRecipe?.id, selectedServings],
+    queryFn: () => checkRecipeAvailability(selectedRecipe!.id, selectedServings),
+    enabled: !!selectedRecipe && !cookResult
+  });
+
+  useEffect(() => {
+    if (selectedRecipe) {
+      setSelectedServings(selectedRecipe.servings ?? 1);
+      setCookResult(null);
+    }
+  }, [selectedRecipe?.id]);
+
   const cookRecipeMutation = useMutation({
-    mutationFn: cookRecipe,
+    mutationFn: ({ id, servings }: { id: number; servings: number }) => cookRecipe(id, servings),
     onSuccess: async (result) => {
       setCookResult(result);
       await queryClient.invalidateQueries({ queryKey: ["inventory"] });
       await queryClient.invalidateQueries({ queryKey: ["recommendations"] });
+      await queryClient.invalidateQueries({ queryKey: ["availability"] });
     }
   });
 
@@ -265,6 +322,18 @@ export default function App() {
     recipesQuery.isLoading ||
     recommendationsQuery.isLoading;
 
+  if (!authChecked) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-slate-400">
+        Loading...
+      </div>
+    );
+  }
+
+  if (!authUser) {
+    return <LoginPage onLogin={loginMutation.mutate} error={loginMutation.isError} isPending={loginMutation.isPending} />;
+  }
+
   return (
     <div className="min-h-screen px-4 py-8 text-slate-100 md:px-8 lg:px-12">
       <main className="mx-auto max-w-7xl space-y-8">
@@ -276,23 +345,43 @@ export default function App() {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-sm uppercase tracking-[0.2em] text-brand-100">ONS Inventory</p>
-              <h1 className="mt-2 text-3xl font-semibold text-white">Your kitchen, but smarter</h1>
+              <h1 className="mt-2 text-3xl font-semibold text-white">Welcome, {authUser.firstName}!</h1>
               <p className="mt-2 text-slate-300">
                 Track pantry, fridge, and freezer stock and get recipe ideas before ingredients expire.
               </p>
             </div>
-            <div className="rounded-xl bg-brand-600/20 px-4 py-3 text-sm text-brand-50">
-              {topMatch ? (
-                <>
-                  <div className="font-medium">Top suggestion</div>
-                  <div className="mt-1 flex items-center gap-2">
-                    <Sparkles className="h-4 w-4" />
-                    {topMatch.recipe.name} ({topMatch.matchPercentage}%)
-                  </div>
-                </>
-              ) : (
-                <div className="font-medium">Add inventory to unlock recommendations</div>
-              )}
+            <div className="flex flex-col items-end gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowChangePassword(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800"
+                >
+                  <KeyRound className="h-3.5 w-3.5" />
+                  Change password
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  Logout
+                </button>
+              </div>
+              <div className="rounded-xl bg-brand-600/20 px-4 py-3 text-sm text-brand-50">
+                {topMatch ? (
+                  <>
+                    <div className="font-medium">Top suggestion</div>
+                    <div className="mt-1 flex items-center gap-2">
+                      <Sparkles className="h-4 w-4" />
+                      {topMatch.recipe.name} ({topMatch.matchPercentage}%)
+                    </div>
+                  </>
+                ) : (
+                  <div className="font-medium">Add inventory to unlock recommendations</div>
+                )}
+              </div>
             </div>
           </div>
         </motion.header>
@@ -685,9 +774,12 @@ export default function App() {
         )}
 
         {selectedRecipe && (() => {
-          const recommendation = recommendations.find(r => r.recipe.id === selectedRecipe.id);
-          const missingIngredients = recommendation?.missingIngredients ?? [];
-          const hasMissing = missingIngredients.length > 0;
+          const baseServings = selectedRecipe.servings ?? 1;
+          const scale = selectedServings / baseServings;
+          const availability = availabilityQuery.data;
+          const canCook = availability?.canCook ?? false;
+          const checkingAvailability = availabilityQuery.isLoading;
+
           return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4">
             <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-6">
@@ -707,15 +799,44 @@ export default function App() {
                 </button>
               </div>
 
+              <div className="mt-4 flex items-center gap-3">
+                <span className="text-sm text-slate-300">Servings:</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedServings((s) => Math.max(1, s - 1))}
+                    disabled={selectedServings <= 1}
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-600 text-slate-200 hover:bg-slate-800 disabled:opacity-30"
+                  >
+                    −
+                  </button>
+                  <span className="min-w-[2rem] text-center font-semibold text-white">{selectedServings}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedServings((s) => s + 1)}
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-600 text-slate-200 hover:bg-slate-800"
+                  >
+                    +
+                  </button>
+                </div>
+                {selectedServings !== baseServings && (
+                  <span className="text-xs text-slate-500">(recipe is for {baseServings})</span>
+                )}
+              </div>
+
               <div className="mt-5 grid gap-5 md:grid-cols-2">
                 <div>
                   <h4 className="text-sm font-semibold uppercase tracking-wide text-brand-100">Ingredients</h4>
                   <ul className="mt-2 space-y-1 text-sm text-slate-200">
-                    {(selectedRecipe.ingredients ?? []).map((ingredient, index) => (
-                      <li key={`${ingredient.ingredientName}-${index}`}>
-                        {ingredient.quantity} {ingredient.unit} {ingredient.ingredientName}
-                      </li>
-                    ))}
+                    {(selectedRecipe.ingredients ?? []).map((ingredient, index) => {
+                      const scaled = ingredient.quantity * scale;
+                      const display = Number.isInteger(scaled) ? scaled : parseFloat(scaled.toFixed(1));
+                      return (
+                        <li key={`${ingredient.ingredientName}-${index}`}>
+                          {display} {ingredient.unit} {ingredient.ingredientName}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
                 <div>
@@ -752,17 +873,22 @@ export default function App() {
                   <div className="space-y-2">
                     <button
                       type="button"
-                      disabled={cookRecipeMutation.isPending || hasMissing}
-                      onClick={() => cookRecipeMutation.mutate(selectedRecipe.id)}
+                      disabled={cookRecipeMutation.isPending || checkingAvailability || !canCook}
+                      onClick={() => cookRecipeMutation.mutate({ id: selectedRecipe.id, servings: selectedServings })}
                       className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 font-medium text-white transition hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <UtensilsCrossed className="h-4 w-4" />
                       {cookRecipeMutation.isPending ? "Updating inventory..." : "Cooked this!"}
                     </button>
-                    {hasMissing && (
-                      <p className="text-sm text-amber-300">
-                        Missing from inventory: {missingIngredients.join(", ")}
-                      </p>
+                    {availability && !canCook && (
+                      <div className="space-y-1 text-sm">
+                        {availability.insufficientIngredients.map((line) => (
+                          <p key={line} className="text-amber-300">· Not enough: {line}</p>
+                        ))}
+                        {availability.missingIngredients.map((line) => (
+                          <p key={line} className="text-rose-300">· Missing: {line}</p>
+                        ))}
+                      </div>
                     )}
                   </div>
                 )}
@@ -775,6 +901,16 @@ export default function App() {
           );
         })()}
       </main>
+
+      {showChangePassword && (
+        <ChangePasswordModal
+          onClose={() => { setShowChangePassword(false); changePasswordMutation.reset(); }}
+          onSubmit={(currentPassword, newPassword) => changePasswordMutation.mutate({ currentPassword, newPassword })}
+          isPending={changePasswordMutation.isPending}
+          isError={changePasswordMutation.isError}
+          isSuccess={changePasswordMutation.isSuccess}
+        />
+      )}
     </div>
   );
 }
@@ -799,6 +935,153 @@ function parseInstructionSteps(instructions?: string): string[] {
     .filter(Boolean);
 
   return sentences.length > 0 ? sentences : [instructions.trim()];
+}
+
+function LoginPage({
+  onLogin,
+  error,
+  isPending
+}: {
+  onLogin: (args: { username: string; password: string }) => void;
+  error: boolean;
+  isPending: boolean;
+}) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    onLogin({ username, password });
+  };
+
+  return (
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <div className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900/80 p-8 shadow-glow">
+        <p className="text-sm uppercase tracking-[0.2em] text-brand-100">ONS Inventory</p>
+        <h1 className="mt-2 text-2xl font-semibold text-white">Sign in</h1>
+        <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
+          <input
+            required
+            autoFocus
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder:text-slate-500"
+            placeholder="Username"
+          />
+          <input
+            required
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder:text-slate-500"
+            placeholder="Password"
+          />
+          {error && <p className="text-sm text-rose-300">Incorrect username or password.</p>}
+          <button
+            type="submit"
+            disabled={isPending}
+            className="rounded-lg bg-brand-600 px-4 py-2 font-medium text-white transition hover:bg-brand-500 disabled:opacity-50"
+          >
+            {isPending ? "Signing in..." : "Sign in"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function ChangePasswordModal({
+  onClose,
+  onSubmit,
+  isPending,
+  isError,
+  isSuccess
+}: {
+  onClose: () => void;
+  onSubmit: (currentPassword: string, newPassword: string) => void;
+  isPending: boolean;
+  isError: boolean;
+  isSuccess: boolean;
+}) {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const mismatch = next !== confirm && confirm.length > 0;
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (mismatch) return;
+    onSubmit(current, next);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4">
+      <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 p-6">
+        <h3 className="text-lg font-semibold text-white">Change password</h3>
+        {isSuccess ? (
+          <div className="mt-4 space-y-4">
+            <p className="text-sm text-emerald-300">Password changed successfully.</p>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full rounded-lg bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500"
+            >
+              Close
+            </button>
+          </div>
+        ) : (
+          <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
+            <input
+              ref={inputRef}
+              required
+              type="password"
+              value={current}
+              onChange={(e) => setCurrent(e.target.value)}
+              className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder:text-slate-500"
+              placeholder="Current password"
+            />
+            <input
+              required
+              type="password"
+              value={next}
+              onChange={(e) => setNext(e.target.value)}
+              className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder:text-slate-500"
+              placeholder="New password"
+            />
+            <input
+              required
+              type="password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              className={`rounded-lg border px-3 py-2 text-slate-100 placeholder:text-slate-500 ${mismatch ? "border-rose-500 bg-rose-950/30" : "border-slate-700 bg-slate-800"}`}
+              placeholder="Confirm new password"
+            />
+            {mismatch && <p className="text-sm text-rose-300">Passwords do not match.</p>}
+            {isError && <p className="text-sm text-rose-300">Current password is incorrect.</p>}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 rounded-lg border border-slate-600 px-4 py-2 text-slate-200 hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isPending || mismatch}
+                className="flex-1 rounded-lg bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500 disabled:opacity-50"
+              >
+                {isPending ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function MetricCard({

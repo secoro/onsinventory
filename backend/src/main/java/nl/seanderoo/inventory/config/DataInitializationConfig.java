@@ -4,13 +4,16 @@ import nl.seanderoo.inventory.model.Location;
 import nl.seanderoo.inventory.model.InventoryItem;
 import nl.seanderoo.inventory.model.Recipe;
 import nl.seanderoo.inventory.model.RecipeIngredient;
+import nl.seanderoo.inventory.model.User;
 import nl.seanderoo.inventory.repository.InventoryItemRepository;
 import nl.seanderoo.inventory.repository.LocationRepository;
 import nl.seanderoo.inventory.repository.RecipeRepository;
+import nl.seanderoo.inventory.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -24,11 +27,26 @@ public class DataInitializationConfig {
             LocationRepository locationRepository,
             RecipeRepository recipeRepository,
             InventoryItemRepository inventoryItemRepository,
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
             @Value("${app.bootstrap.enabled:true}") boolean bootstrapEnabled
     ) {
         return args -> {
             if (!bootstrapEnabled) {
                 return;
+            }
+
+            if (userRepository.count() == 0) {
+                userRepository.save(User.builder()
+                        .username("sean")
+                        .firstName("Sean")
+                        .password(passwordEncoder.encode("Test!234"))
+                        .build());
+                userRepository.save(User.builder()
+                        .username("natalia")
+                        .firstName("Natalia")
+                        .password(passwordEncoder.encode("Test!234"))
+                        .build());
             }
 
             // Initialize default locations

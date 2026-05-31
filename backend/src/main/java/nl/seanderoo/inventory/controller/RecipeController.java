@@ -1,6 +1,7 @@
 package nl.seanderoo.inventory.controller;
 
 import nl.seanderoo.inventory.dto.CookResultDTO;
+import nl.seanderoo.inventory.dto.RecipeAvailabilityDTO;
 import nl.seanderoo.inventory.dto.RecipeDTO;
 import nl.seanderoo.inventory.service.InventoryService;
 import nl.seanderoo.inventory.service.RecipeService;
@@ -71,9 +72,17 @@ public class RecipeController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/{id}/availability")
+    public ResponseEntity<RecipeAvailabilityDTO> checkAvailability(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "1") int servings) {
+        return ResponseEntity.ok(inventoryService.checkAvailability(id, servings));
+    }
+
     @PostMapping("/{id}/cook")
-    public ResponseEntity<CookResultDTO> cookRecipe(@PathVariable Long id) {
-        CookResultDTO result = inventoryService.cookRecipe(id);
-        return ResponseEntity.ok(result);
+    public ResponseEntity<CookResultDTO> cookRecipe(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "1") int servings) {
+        return ResponseEntity.ok(inventoryService.cookRecipe(id, servings));
     }
 }

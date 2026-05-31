@@ -1,3 +1,9 @@
+export type AuthUser = {
+  username: string;
+  firstName: string;
+  token: string;
+};
+
 export type Location = {
   id: number;
   name: string;
@@ -45,6 +51,12 @@ export type Recipe = {
 export type CookResult = {
   consumed: string[];
   unmatched: string[];
+};
+
+export type RecipeAvailability = {
+  canCook: boolean;
+  insufficientIngredients: string[];
+  missingIngredients: string[];
 };
 
 export type RecipeRecommendation = {

@@ -3,16 +3,33 @@ import {
   InventoryItem,
   Location,
   Recipe,
+  RecipeAvailability,
   RecipeIngredient,
   RecipeRecommendation
 } from "../types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
 
+const TOKEN_KEY = "auth_token";
+
+export function getStoredToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function storeToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearToken(): void {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getStoredToken();
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
     },
     ...init
   });
@@ -107,8 +124,30 @@ export function deleteRecipe(id: number) {
   });
 }
 
-export function cookRecipe(id: number) {
-  return request<CookResult>(`/api/recipes/${id}/cook`, {
+export function checkRecipeAvailability(id: number, servings: number) {
+  return request<RecipeAvailability>(`/api/recipes/${id}/availability?servings=${servings}`);
+}
+
+export function cookRecipe(id: number, servings: number) {
+  return request<CookResult>(`/api/recipes/${id}/cook?servings=${servings}`, {
     method: "POST"
+  });
+}
+
+export function login(username: string, password: string) {
+  return request<{ token: string; username: string; firstName: string }>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ username, password })
+  });
+}
+
+export function getMe() {
+  return request<{ username: string; firstName: string }>("/api/auth/me");
+}
+
+export function changePassword(currentPassword: string, newPassword: string) {
+  return request<void>("/api/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({ currentPassword, newPassword })
   });
 }

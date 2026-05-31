@@ -45,3 +45,6 @@ management:
 app:
   bootstrap:
     enabled: true
+  jwt:
+    secret: ${APP_JWT_SECRET:onsinventory-jwt-secret-key-minimum-32-characters-long}
+    expiration: 604800000
