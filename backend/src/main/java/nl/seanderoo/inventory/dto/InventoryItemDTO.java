@@ -16,7 +16,7 @@ public class InventoryItemDTO {
     private String name;
     private String category;
     private String location;
-    private Integer quantity;
+    private Double quantity;
     private String unit;
     private LocalDate expiryDate;
     private LocalDate addedDate;

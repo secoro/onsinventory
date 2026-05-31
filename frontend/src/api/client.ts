@@ -118,6 +118,19 @@ export function addRecipe(payload: {
   });
 }
 
+export function updateRecipe(id: number, payload: {
+  name?: string;
+  cuisine?: string;
+  difficulty?: string;
+  instructions?: string;
+  ingredients?: RecipeIngredient[];
+}) {
+  return request<Recipe>(`/api/recipes/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload)
+  });
+}
+
 export function deleteRecipe(id: number) {
   return request<void>(`/api/recipes/${id}`, {
     method: "DELETE"

@@ -31,7 +31,7 @@ public class InventoryItem {
     private Location location;
 
     @Column(nullable = false)
-    private Integer quantity;
+    private Double quantity;
 
     @Column(nullable = false)
     private String unit; // "pieces", "grams", "ml", "liters", etc.

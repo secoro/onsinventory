@@ -187,7 +187,7 @@ public class DataInitializationConfig {
                         .name("Eggs")
                         .category("dairy")
                         .location(fridge)
-                        .quantity(12)
+                        .quantity(12.0)
                         .unit("pieces")
                         .expiryDate(LocalDate.now().plusDays(6))
                         .notes("Free-range")
@@ -197,7 +197,7 @@ public class DataInitializationConfig {
                         .name("Milk")
                         .category("dairy")
                         .location(fridge)
-                        .quantity(1)
+                        .quantity(1.0)
                         .unit("liters")
                         .expiryDate(LocalDate.now().plusDays(3))
                         .build());
@@ -206,7 +206,7 @@ public class DataInitializationConfig {
                         .name("Butter")
                         .category("dairy")
                         .location(fridge)
-                        .quantity(250)
+                        .quantity(250.0)
                         .unit("grams")
                         .expiryDate(LocalDate.now().plusDays(20))
                         .build());
@@ -215,7 +215,7 @@ public class DataInitializationConfig {
                         .name("Tomato")
                         .category("vegetable")
                         .location(fridge)
-                        .quantity(6)
+                        .quantity(6.0)
                         .unit("pieces")
                         .expiryDate(LocalDate.now().plusDays(2))
                         .build());
@@ -224,7 +224,7 @@ public class DataInitializationConfig {
                         .name("Bell pepper")
                         .category("vegetable")
                         .location(fridge)
-                        .quantity(3)
+                        .quantity(3.0)
                         .unit("pieces")
                         .expiryDate(LocalDate.now().plusDays(4))
                         .build());
@@ -233,7 +233,7 @@ public class DataInitializationConfig {
                         .name("Broccoli")
                         .category("vegetable")
                         .location(fridge)
-                        .quantity(1)
+                        .quantity(1.0)
                         .unit("pieces")
                         .expiryDate(LocalDate.now().plusDays(3))
                         .build());
@@ -242,7 +242,7 @@ public class DataInitializationConfig {
                         .name("Garlic")
                         .category("vegetable")
                         .location(pantry)
-                        .quantity(2)
+                        .quantity(2.0)
                         .unit("bulbs")
                         .expiryDate(LocalDate.now().plusDays(25))
                         .build());
@@ -251,7 +251,7 @@ public class DataInitializationConfig {
                         .name("Onion")
                         .category("vegetable")
                         .location(pantry)
-                        .quantity(5)
+                        .quantity(5.0)
                         .unit("pieces")
                         .expiryDate(LocalDate.now().plusDays(15))
                         .build());
@@ -260,7 +260,7 @@ public class DataInitializationConfig {
                         .name("Pasta")
                         .category("grains")
                         .location(pantry)
-                        .quantity(1000)
+                        .quantity(1000.0)
                         .unit("grams")
                         .expiryDate(LocalDate.now().plusDays(180))
                         .build());
@@ -269,7 +269,7 @@ public class DataInitializationConfig {
                         .name("Olive oil")
                         .category("oil")
                         .location(pantry)
-                        .quantity(750)
+                        .quantity(750.0)
                         .unit("ml")
                         .expiryDate(LocalDate.now().plusDays(220))
                         .build());
@@ -278,7 +278,7 @@ public class DataInitializationConfig {
                         .name("Chicken breast")
                         .category("meat")
                         .location(freezer)
-                        .quantity(2)
+                        .quantity(2.0)
                         .unit("pieces")
                         .expiryDate(LocalDate.now().plusDays(90))
                         .build());
@@ -287,7 +287,7 @@ public class DataInitializationConfig {
                         .name("Frozen peas")
                         .category("vegetable")
                         .location(freezer)
-                        .quantity(1)
+                        .quantity(1.0)
                         .unit("bag")
                         .expiryDate(LocalDate.now().plusDays(150))
                         .build());

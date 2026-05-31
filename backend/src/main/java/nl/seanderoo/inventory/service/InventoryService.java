@@ -21,54 +21,64 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 @Transactional
 public class InventoryService {
 
+    private static final Set<String> ALWAYS_AVAILABLE = Set.of(
+            "water", "tap water", "cold water", "hot water", "boiling water", "ice water"
+    );
+
+    // Keyed by normalized unit — all variants map to one canonical form
     private static final Map<String, Double> VOLUME_TO_ML = new HashMap<>();
     private static final Map<String, Double> WEIGHT_TO_GRAMS = new HashMap<>();
 
     static {
         VOLUME_TO_ML.put("ml", 1.0);
-        VOLUME_TO_ML.put("l", 1000.0);
-        VOLUME_TO_ML.put("liter", 1000.0);
         VOLUME_TO_ML.put("liters", 1000.0);
         VOLUME_TO_ML.put("dl", 100.0);
         VOLUME_TO_ML.put("tsp", 5.0);
-        VOLUME_TO_ML.put("teaspoon", 5.0);
-        VOLUME_TO_ML.put("teaspoons", 5.0);
         VOLUME_TO_ML.put("tbsp", 15.0);
-        VOLUME_TO_ML.put("tablespoon", 15.0);
-        VOLUME_TO_ML.put("tablespoons", 15.0);
         VOLUME_TO_ML.put("cup", 240.0);
-        VOLUME_TO_ML.put("cups", 240.0);
         VOLUME_TO_ML.put("floz", 29.57);
 
-        WEIGHT_TO_GRAMS.put("g", 1.0);
-        WEIGHT_TO_GRAMS.put("gram", 1.0);
         WEIGHT_TO_GRAMS.put("grams", 1.0);
         WEIGHT_TO_GRAMS.put("kg", 1000.0);
         WEIGHT_TO_GRAMS.put("oz", 28.35);
-        WEIGHT_TO_GRAMS.put("ounce", 28.35);
-        WEIGHT_TO_GRAMS.put("ounces", 28.35);
-        WEIGHT_TO_GRAMS.put("lb", 453.6);
         WEIGHT_TO_GRAMS.put("lbs", 453.6);
-        WEIGHT_TO_GRAMS.put("pound", 453.6);
-        WEIGHT_TO_GRAMS.put("pounds", 453.6);
+    }
+
+    static String normalizeUnit(String unit) {
+        return switch (unit.toLowerCase().trim()) {
+            case "piece", "pieces", "stuk", "stuks" -> "pieces";
+            case "gram", "grams", "g" -> "grams";
+            case "kilogram", "kilograms", "kg" -> "kg";
+            case "liter", "liters", "litre", "litres", "l" -> "liters";
+            case "deciliter", "deciliters", "dl" -> "dl";
+            case "milliliter", "milliliters", "millilitre", "millilitres", "ml" -> "ml";
+            case "clove", "cloves" -> "cloves";
+            case "bulb", "bulbs" -> "bulbs";
+            case "tbsp", "tablespoon", "tablespoons" -> "tbsp";
+            case "tsp", "teaspoon", "teaspoons" -> "tsp";
+            case "cup", "cups" -> "cup";
+            case "ounce", "ounces", "oz" -> "oz";
+            case "pound", "pounds", "lb", "lbs" -> "lbs";
+            case "bag", "bags", "zak" -> "bag";
+            case "bunch", "bunches", "bos" -> "bunch";
+            default -> unit.toLowerCase().trim();
+        };
     }
 
     private static OptionalDouble convertUnit(double quantity, String fromUnit, String toUnit) {
-        String from = fromUnit.toLowerCase().trim();
-        String to = toUnit.toLowerCase().trim();
+        String from = normalizeUnit(fromUnit);
+        String to = normalizeUnit(toUnit);
         if (from.equals(to)) return OptionalDouble.of(quantity);
 
-        // Garlic: cloves <-> bulbs (~10 cloves per bulb)
-        if ((from.equals("clove") || from.equals("cloves")) && (to.equals("bulb") || to.equals("bulbs")))
-            return OptionalDouble.of(quantity / 10.0);
-        if ((from.equals("bulb") || from.equals("bulbs")) && (to.equals("clove") || to.equals("cloves")))
-            return OptionalDouble.of(quantity * 10.0);
+        if (from.equals("cloves") && to.equals("bulbs")) return OptionalDouble.of(quantity / 10.0);
+        if (from.equals("bulbs") && to.equals("cloves")) return OptionalDouble.of(quantity * 10.0);
 
         if (VOLUME_TO_ML.containsKey(from) && VOLUME_TO_ML.containsKey(to))
             return OptionalDouble.of(quantity * VOLUME_TO_ML.get(from) / VOLUME_TO_ML.get(to));
@@ -184,6 +194,7 @@ public class InventoryService {
         List<String> missing = new ArrayList<>();
 
         for (RecipeIngredient ingredient : recipe.getIngredients()) {
+            if (ALWAYS_AVAILABLE.contains(ingredient.getIngredientName().toLowerCase().trim())) continue;
             double needed = ingredient.getQuantity() * scale;
             List<InventoryItem> candidates = findCandidates(ingredient.getIngredientName());
 
@@ -193,15 +204,15 @@ public class InventoryService {
             }
 
             Optional<InventoryItem> exactMatch = candidates.stream()
-                    .filter(item -> item.getUnit().equalsIgnoreCase(ingredient.getUnit()))
+                    .filter(item -> normalizeUnit(item.getUnit()).equals(normalizeUnit(ingredient.getUnit())))
                     .findFirst();
 
             if (exactMatch.isPresent()) {
                 InventoryItem item = exactMatch.get();
-                if (item.getQuantity() < (int) Math.ceil(needed)) {
+                if (item.getQuantity() < needed) {
                     insufficient.add(ingredient.getIngredientName()
-                            + " (need " + (int) Math.ceil(needed) + " " + ingredient.getUnit()
-                            + ", have " + item.getQuantity() + " " + item.getUnit() + ")");
+                            + " (need " + formatQty(needed) + " " + ingredient.getUnit()
+                            + ", have " + formatQty(item.getQuantity()) + " " + item.getUnit() + ")");
                 }
                 continue;
             }
@@ -212,18 +223,17 @@ public class InventoryService {
 
             if (convertibleMatch.isPresent()) {
                 InventoryItem item = convertibleMatch.get();
-                int convertedNeeded = Math.max(1, (int) Math.ceil(
-                        convertUnit(needed, ingredient.getUnit(), item.getUnit()).getAsDouble()));
+                double convertedNeeded = convertUnit(needed, ingredient.getUnit(), item.getUnit()).getAsDouble();
                 if (item.getQuantity() < convertedNeeded) {
                     insufficient.add(ingredient.getIngredientName()
-                            + " (need " + convertedNeeded + " " + item.getUnit()
-                            + ", have " + item.getQuantity() + " " + item.getUnit() + ")");
+                            + " (need " + formatQty(convertedNeeded) + " " + item.getUnit()
+                            + ", have " + formatQty(item.getQuantity()) + " " + item.getUnit() + ")");
                 }
                 continue;
             }
 
             // Approximation fallback: always deduct 1, so available if quantity >= 1
-            if (candidates.get(0).getQuantity() < 1) {
+            if (candidates.get(0).getQuantity() < 1.0) {
                 missing.add(ingredient.getIngredientName());
             }
         }
@@ -244,6 +254,7 @@ public class InventoryService {
         List<String> unmatched = new ArrayList<>();
 
         for (RecipeIngredient ingredient : recipe.getIngredients()) {
+            if (ALWAYS_AVAILABLE.contains(ingredient.getIngredientName().toLowerCase().trim())) continue;
             double scaledQuantity = ingredient.getQuantity() * scale;
             List<InventoryItem> candidates = findCandidates(ingredient.getIngredientName());
 
@@ -253,16 +264,16 @@ public class InventoryService {
             }
 
             Optional<InventoryItem> exactMatch = candidates.stream()
-                    .filter(item -> item.getUnit().equalsIgnoreCase(ingredient.getUnit()))
+                    .filter(item -> normalizeUnit(item.getUnit()).equals(normalizeUnit(ingredient.getUnit())))
                     .findFirst();
 
             InventoryItem item;
-            int toDeduct;
+            double toDeduct;
             boolean approximated = false;
 
             if (exactMatch.isPresent()) {
                 item = exactMatch.get();
-                toDeduct = (int) Math.ceil(scaledQuantity);
+                toDeduct = scaledQuantity;
             } else {
                 Optional<InventoryItem> convertibleMatch = candidates.stream()
                         .filter(c -> convertUnit(scaledQuantity, ingredient.getUnit(), c.getUnit()).isPresent())
@@ -270,16 +281,15 @@ public class InventoryService {
 
                 if (convertibleMatch.isPresent()) {
                     item = convertibleMatch.get();
-                    double converted = convertUnit(scaledQuantity, ingredient.getUnit(), item.getUnit()).getAsDouble();
-                    toDeduct = Math.max(1, (int) Math.ceil(converted));
+                    toDeduct = convertUnit(scaledQuantity, ingredient.getUnit(), item.getUnit()).getAsDouble();
                 } else {
                     item = candidates.get(0);
-                    toDeduct = 1;
+                    toDeduct = 1.0;
                     approximated = true;
                 }
             }
 
-            int remaining = item.getQuantity() - toDeduct;
+            double remaining = item.getQuantity() - toDeduct;
             String suffix = approximated ? " (unit approximated)" : "";
 
             if (remaining <= 0) {
@@ -288,7 +298,7 @@ public class InventoryService {
             } else {
                 item.setQuantity(remaining);
                 inventoryItemRepository.save(item);
-                consumed.add(item.getName() + ": −" + toDeduct + " " + item.getUnit() + suffix);
+                consumed.add(item.getName() + ": −" + formatQty(toDeduct) + " " + item.getUnit() + suffix);
             }
         }
 
@@ -312,6 +322,10 @@ public class InventoryService {
     private static double scale(Integer baseServings, int requestedServings) {
         int base = (baseServings != null && baseServings > 0) ? baseServings : 1;
         return (double) requestedServings / base;
+    }
+
+    private static String formatQty(double qty) {
+        return qty == Math.floor(qty) ? String.valueOf((long) qty) : String.valueOf(qty);
     }
 
     private InventoryItemDTO toDTO(InventoryItem item) {
@@ -340,7 +354,7 @@ public class InventoryService {
         if (dto.getLocation() == null || dto.getLocation().isBlank()) {
             throw new BadRequestException("Location is required");
         }
-        if (dto.getQuantity() == null || dto.getQuantity() <= 0) {
+        if (dto.getQuantity() == null || dto.getQuantity() <= 0.0) {
             throw new BadRequestException("Quantity must be greater than 0");
         }
         if (dto.getUnit() == null || dto.getUnit().isBlank()) {

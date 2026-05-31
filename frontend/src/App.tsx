@@ -34,7 +34,8 @@ import {
   getRecipes,
   login,
   storeToken,
-  updateInventoryItem
+  updateInventoryItem,
+  updateRecipe
 } from "./api/client";
 import { recommendationLabel, topRecommendation } from "./lib/recommendation";
 import { AuthUser, CookResult, InventoryItem, Recipe, RecipeIngredient } from "./types";
@@ -91,6 +92,7 @@ export default function App() {
   const [recipeForm, setRecipeForm] = useState<AddRecipeFormState>(initialRecipeForm);
   const [activeLocation, setActiveLocation] = useState<string>("All");
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
+  const [editingRecipeId, setEditingRecipeId] = useState<number | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [selectedServings, setSelectedServings] = useState(1);
   const [cookResult, setCookResult] = useState<CookResult | null>(null);
@@ -184,6 +186,17 @@ export default function App() {
   const addRecipeMutation = useMutation({
     mutationFn: addRecipe,
     onSuccess: async () => {
+      setRecipeForm(initialRecipeForm);
+      await queryClient.invalidateQueries({ queryKey: ["recipes"] });
+      await queryClient.invalidateQueries({ queryKey: ["recommendations"] });
+    }
+  });
+
+  const updateRecipeMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: Parameters<typeof updateRecipe>[1] }) =>
+      updateRecipe(id, payload),
+    onSuccess: async () => {
+      setEditingRecipeId(null);
       setRecipeForm(initialRecipeForm);
       await queryClient.invalidateQueries({ queryKey: ["recipes"] });
       await queryClient.invalidateQueries({ queryKey: ["recommendations"] });
@@ -300,15 +313,21 @@ export default function App() {
     event.preventDefault();
 
     const ingredients: RecipeIngredient[] = recipeForm.ingredients
-      .split(",")
-      .map((ingredient) => ingredient.trim())
+      .split("\n")
+      .map((line) => line.trim())
       .filter(Boolean)
-      .map((ingredientName) => ({
-        ingredientName,
-        quantity: 1,
-        unit: "unit",
-        optional: false
-      }));
+      .map(parseIngredientLine);
+
+    if (editingRecipeId !== null) {
+      updateRecipeMutation.mutate({ id: editingRecipeId, payload: {
+        name: recipeForm.name,
+        cuisine: recipeForm.cuisine || undefined,
+        difficulty: recipeForm.difficulty || undefined,
+        instructions: recipeForm.instructions || undefined,
+        ingredients
+      }});
+      return;
+    }
 
     addRecipeMutation.mutate({
       name: recipeForm.name,
@@ -317,6 +336,25 @@ export default function App() {
       instructions: recipeForm.instructions || undefined,
       ingredients
     });
+  };
+
+  const startEditingRecipe = (recipe: Recipe) => {
+    setEditingRecipeId(recipe.id);
+    const ingredientsStr = [...(recipe.ingredients ?? [])]
+      .map((ing) => `${ing.quantity} ${ing.unit} ${ing.ingredientName}`)
+      .join("\n");
+    setRecipeForm({
+      name: recipe.name,
+      cuisine: recipe.cuisine ?? "",
+      difficulty: recipe.difficulty ?? "easy",
+      instructions: recipe.instructions ?? "",
+      ingredients: ingredientsStr
+    });
+  };
+
+  const cancelEditingRecipe = () => {
+    setEditingRecipeId(null);
+    setRecipeForm(initialRecipeForm);
   };
 
   const startEditingItem = (item: InventoryItem) => {
@@ -592,7 +630,8 @@ export default function App() {
                       <input
                         required
                         type="number"
-                        min={1}
+                        min={0.01}
+                        step="any"
                         value={formState.quantity}
                         onChange={(event) =>
                           setFormState((prev) => ({ ...prev, quantity: Number(event.target.value) }))
@@ -722,7 +761,9 @@ export default function App() {
 
             <section className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
               <article className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
-                <h2 className="text-xl font-semibold">Add recipe</h2>
+                <h2 className="text-xl font-semibold">
+                  {editingRecipeId !== null ? "Edit recipe" : "Add recipe"}
+                </h2>
                 <form className="mt-4 grid gap-3" onSubmit={handleRecipeSubmit}>
                   <input
                     required
@@ -748,27 +789,44 @@ export default function App() {
                       <option value="hard">hard</option>
                     </select>
                   </div>
-                  <input
+                  <textarea
                     value={recipeForm.ingredients}
                     onChange={(event) => setRecipeForm((prev) => ({ ...prev, ingredients: event.target.value }))}
                     className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2"
-                    placeholder="Ingredients (comma separated)"
+                    placeholder={"One ingredient per line:\n400 grams pasta\n3 cloves garlic\n100 ml olive oil"}
+                    rows={5}
                   />
                   <textarea
                     value={recipeForm.instructions}
                     onChange={(event) => setRecipeForm((prev) => ({ ...prev, instructions: event.target.value }))}
                     className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2"
                     placeholder="Instructions"
+                    rows={3}
                   />
                   <button
                     type="submit"
-                    disabled={addRecipeMutation.isPending}
+                    disabled={addRecipeMutation.isPending || updateRecipeMutation.isPending}
                     className="rounded-lg bg-brand-600 px-4 py-2 font-medium text-white transition hover:bg-brand-500 disabled:opacity-50"
                   >
-                    {addRecipeMutation.isPending ? "Adding..." : "Add recipe"}
+                    {editingRecipeId !== null
+                      ? updateRecipeMutation.isPending ? "Saving..." : "Save changes"
+                      : addRecipeMutation.isPending ? "Adding..." : "Add recipe"}
                   </button>
+                  {editingRecipeId !== null && (
+                    <button
+                      type="button"
+                      onClick={cancelEditingRecipe}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-600 px-4 py-2 text-slate-200 hover:bg-slate-800"
+                    >
+                      <Undo2 className="h-4 w-4" />
+                      Cancel edit
+                    </button>
+                  )}
                   {addRecipeMutation.isError && (
                     <p className="text-sm text-rose-300">Could not add recipe. Please check your input.</p>
+                  )}
+                  {updateRecipeMutation.isError && (
+                    <p className="text-sm text-rose-300">Could not update recipe. Try again.</p>
                   )}
                 </form>
               </article>
@@ -797,14 +855,24 @@ export default function App() {
                               {recipe.cuisine || "Unknown cuisine"} · {recipe.difficulty || "unknown"}
                             </p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); deleteRecipeMutation.mutate(recipe.id); }}
-                            className="inline-flex items-center gap-1 rounded-md bg-rose-500/20 px-2 py-1 text-xs text-rose-200 hover:bg-rose-500/30"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                            Delete
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); startEditingRecipe(recipe); }}
+                              className="inline-flex items-center gap-1 rounded-md bg-slate-700 px-2 py-1 text-xs text-slate-200 hover:bg-slate-600"
+                            >
+                              <Pencil className="h-3 w-3" />
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); deleteRecipeMutation.mutate(recipe.id); }}
+                              className="inline-flex items-center gap-1 rounded-md bg-rose-500/20 px-2 py-1 text-xs text-rose-200 hover:bg-rose-500/30"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                              Delete
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))
@@ -958,6 +1026,21 @@ export default function App() {
       )}
     </div>
   );
+}
+
+function parseIngredientLine(line: string): RecipeIngredient {
+  // Matches: "{qty} {unit} [of|van] {name}"  e.g. "100 ml of water" or "3 cloves garlic"
+  const match = line.match(/^(\d+(?:[.,]\d+)?)\s+(\S+)(?:\s+(?:of|van))?\s+(.+)$/i);
+  if (match) {
+    const [, qtyStr, unit, name] = match;
+    return {
+      ingredientName: name.trim(),
+      quantity: parseFloat(qtyStr.replace(",", ".")),
+      unit: unit.toLowerCase(),
+      optional: false
+    };
+  }
+  return { ingredientName: line.trim(), quantity: 1, unit: "pieces", optional: false };
 }
 
 function parseInstructionSteps(instructions?: string): string[] {
