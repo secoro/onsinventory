@@ -1,6 +1,8 @@
 package nl.seanderoo.inventory.controller;
 
+import nl.seanderoo.inventory.dto.CookResultDTO;
 import nl.seanderoo.inventory.dto.RecipeDTO;
+import nl.seanderoo.inventory.service.InventoryService;
 import nl.seanderoo.inventory.service.RecipeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,9 +16,11 @@ import java.util.List;
 public class RecipeController {
 
     private final RecipeService recipeService;
+    private final InventoryService inventoryService;
 
-    public RecipeController(RecipeService recipeService) {
+    public RecipeController(RecipeService recipeService, InventoryService inventoryService) {
         this.recipeService = recipeService;
+        this.inventoryService = inventoryService;
     }
 
     @PostMapping
@@ -65,5 +69,11 @@ public class RecipeController {
     public ResponseEntity<Void> deleteRecipe(@PathVariable Long id) {
         recipeService.deleteRecipe(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/cook")
+    public ResponseEntity<CookResultDTO> cookRecipe(@PathVariable Long id) {
+        CookResultDTO result = inventoryService.cookRecipe(id);
+        return ResponseEntity.ok(result);
     }
 }

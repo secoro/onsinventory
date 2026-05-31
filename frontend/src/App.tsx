@@ -10,12 +10,14 @@ import {
   Refrigerator,
   Sparkles,
   Trash2,
-  Undo2
+  Undo2,
+  UtensilsCrossed
 } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import {
   addInventoryItem,
   addRecipe,
+  cookRecipe,
   deleteInventoryItem,
   deleteRecipe,
   getInventory,
@@ -25,7 +27,7 @@ import {
   updateInventoryItem
 } from "./api/client";
 import { recommendationLabel, topRecommendation } from "./lib/recommendation";
-import { InventoryItem, Recipe, RecipeIngredient } from "./types";
+import { CookResult, InventoryItem, Recipe, RecipeIngredient } from "./types";
 
 const colors = ["#3b82f6", "#22c55e", "#eab308", "#ef4444", "#8b5cf6", "#14b8a6"];
 const pageSizeOptions = [4, 8, 12];
@@ -77,6 +79,7 @@ export default function App() {
   const [activeLocation, setActiveLocation] = useState<string>("All");
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [cookResult, setCookResult] = useState<CookResult | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(4);
 
@@ -97,7 +100,7 @@ export default function App() {
 
   const recommendationsQuery = useQuery({
     queryKey: ["recommendations"],
-    queryFn: () => getRecommendations(10)
+    queryFn: () => getRecommendations(50)
   });
 
   const addItemMutation = useMutation({
@@ -145,6 +148,15 @@ export default function App() {
     mutationFn: deleteRecipe,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["recipes"] });
+      await queryClient.invalidateQueries({ queryKey: ["recommendations"] });
+    }
+  });
+
+  const cookRecipeMutation = useMutation({
+    mutationFn: cookRecipe,
+    onSuccess: async (result) => {
+      setCookResult(result);
+      await queryClient.invalidateQueries({ queryKey: ["inventory"] });
       await queryClient.invalidateQueries({ queryKey: ["recommendations"] });
     }
   });
@@ -636,7 +648,14 @@ export default function App() {
                     <p className="rounded-lg bg-slate-800/70 p-4 text-slate-300">No recipes yet. Add your first one.</p>
                   ) : (
                     recipes.map((recipe) => (
-                      <div key={recipe.id} className="rounded-xl bg-slate-800/70 p-4">
+                      <div
+                        key={recipe.id}
+                        onClick={() => { setSelectedRecipe(recipe); setCookResult(null); }}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedRecipe(recipe); setCookResult(null); } }}
+                        className="cursor-pointer rounded-xl bg-slate-800/70 p-4 hover:bg-slate-700/70 transition"
+                      >
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <p className="font-medium text-white">{recipe.name}</p>
@@ -646,7 +665,7 @@ export default function App() {
                           </div>
                           <button
                             type="button"
-                            onClick={() => deleteRecipeMutation.mutate(recipe.id)}
+                            onClick={(e) => { e.stopPropagation(); deleteRecipeMutation.mutate(recipe.id); }}
                             className="inline-flex items-center gap-1 rounded-md bg-rose-500/20 px-2 py-1 text-xs text-rose-200 hover:bg-rose-500/30"
                           >
                             <Trash2 className="h-3 w-3" />
@@ -665,7 +684,11 @@ export default function App() {
           </>
         )}
 
-        {selectedRecipe && (
+        {selectedRecipe && (() => {
+          const recommendation = recommendations.find(r => r.recipe.id === selectedRecipe.id);
+          const missingIngredients = recommendation?.missingIngredients ?? [];
+          const hasMissing = missingIngredients.length > 0;
+          return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4">
             <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-6">
               <div className="flex items-start justify-between gap-4">
@@ -677,7 +700,7 @@ export default function App() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSelectedRecipe(null)}
+                  onClick={() => { setSelectedRecipe(null); setCookResult(null); }}
                   className="rounded-md border border-slate-600 px-3 py-1 text-sm text-slate-200 hover:bg-slate-800"
                 >
                   Close
@@ -704,9 +727,53 @@ export default function App() {
                   </ol>
                 </div>
               </div>
+
+              <div className="mt-6 border-t border-slate-700 pt-5">
+                {cookResult ? (
+                  <div className="space-y-3 text-sm">
+                    {cookResult.consumed.length > 0 && (
+                      <div>
+                        <p className="font-medium text-emerald-300">Inventory updated:</p>
+                        <ul className="mt-1 space-y-1 text-slate-300">
+                          {cookResult.consumed.map((line) => <li key={line}>· {line}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {cookResult.unmatched.length > 0 && (
+                      <div>
+                        <p className="font-medium text-amber-300">Not found in inventory:</p>
+                        <ul className="mt-1 space-y-1 text-slate-300">
+                          {cookResult.unmatched.map((line) => <li key={line}>· {line}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      disabled={cookRecipeMutation.isPending || hasMissing}
+                      onClick={() => cookRecipeMutation.mutate(selectedRecipe.id)}
+                      className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 font-medium text-white transition hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <UtensilsCrossed className="h-4 w-4" />
+                      {cookRecipeMutation.isPending ? "Updating inventory..." : "Cooked this!"}
+                    </button>
+                    {hasMissing && (
+                      <p className="text-sm text-amber-300">
+                        Missing from inventory: {missingIngredients.join(", ")}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {cookRecipeMutation.isError && (
+                  <p className="mt-2 text-sm text-rose-300">Could not update inventory. Try again.</p>
+                )}
+              </div>
             </div>
           </div>
-        )}
+          );
+        })()}
       </main>
     </div>
   );

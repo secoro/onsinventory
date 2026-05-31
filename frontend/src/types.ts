@@ -42,6 +42,11 @@ export type Recipe = {
   ingredients: RecipeIngredient[];
 };
 
+export type CookResult = {
+  consumed: string[];
+  unmatched: string[];
+};
+
 export type RecipeRecommendation = {
   recipe: Recipe;
   matchPercentage: number;

@@ -1,29 +1,91 @@
 package nl.seanderoo.inventory.service;
 
+import nl.seanderoo.inventory.dto.CookResultDTO;
 import nl.seanderoo.inventory.dto.InventoryItemDTO;
 import nl.seanderoo.inventory.exception.BadRequestException;
 import nl.seanderoo.inventory.exception.ResourceNotFoundException;
 import nl.seanderoo.inventory.model.InventoryItem;
 import nl.seanderoo.inventory.model.Location;
+import nl.seanderoo.inventory.model.RecipeIngredient;
 import nl.seanderoo.inventory.repository.InventoryItemRepository;
 import nl.seanderoo.inventory.repository.LocationRepository;
+import nl.seanderoo.inventory.repository.RecipeRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.stream.Collectors;
 
 @Service
 @Transactional
 public class InventoryService {
 
+    private static final Map<String, Double> VOLUME_TO_ML = new HashMap<>();
+    private static final Map<String, Double> WEIGHT_TO_GRAMS = new HashMap<>();
+
+    static {
+        VOLUME_TO_ML.put("ml", 1.0);
+        VOLUME_TO_ML.put("l", 1000.0);
+        VOLUME_TO_ML.put("liter", 1000.0);
+        VOLUME_TO_ML.put("liters", 1000.0);
+        VOLUME_TO_ML.put("dl", 100.0);
+        VOLUME_TO_ML.put("tsp", 5.0);
+        VOLUME_TO_ML.put("teaspoon", 5.0);
+        VOLUME_TO_ML.put("teaspoons", 5.0);
+        VOLUME_TO_ML.put("tbsp", 15.0);
+        VOLUME_TO_ML.put("tablespoon", 15.0);
+        VOLUME_TO_ML.put("tablespoons", 15.0);
+        VOLUME_TO_ML.put("cup", 240.0);
+        VOLUME_TO_ML.put("cups", 240.0);
+        VOLUME_TO_ML.put("floz", 29.57);
+
+        WEIGHT_TO_GRAMS.put("g", 1.0);
+        WEIGHT_TO_GRAMS.put("gram", 1.0);
+        WEIGHT_TO_GRAMS.put("grams", 1.0);
+        WEIGHT_TO_GRAMS.put("kg", 1000.0);
+        WEIGHT_TO_GRAMS.put("oz", 28.35);
+        WEIGHT_TO_GRAMS.put("ounce", 28.35);
+        WEIGHT_TO_GRAMS.put("ounces", 28.35);
+        WEIGHT_TO_GRAMS.put("lb", 453.6);
+        WEIGHT_TO_GRAMS.put("lbs", 453.6);
+        WEIGHT_TO_GRAMS.put("pound", 453.6);
+        WEIGHT_TO_GRAMS.put("pounds", 453.6);
+    }
+
+    private static OptionalDouble convertUnit(double quantity, String fromUnit, String toUnit) {
+        String from = fromUnit.toLowerCase().trim();
+        String to = toUnit.toLowerCase().trim();
+        if (from.equals(to)) return OptionalDouble.of(quantity);
+
+        // Garlic: cloves <-> bulbs (~10 cloves per bulb)
+        if ((from.equals("clove") || from.equals("cloves")) && (to.equals("bulb") || to.equals("bulbs")))
+            return OptionalDouble.of(quantity / 10.0);
+        if ((from.equals("bulb") || from.equals("bulbs")) && (to.equals("clove") || to.equals("cloves")))
+            return OptionalDouble.of(quantity * 10.0);
+
+        if (VOLUME_TO_ML.containsKey(from) && VOLUME_TO_ML.containsKey(to))
+            return OptionalDouble.of(quantity * VOLUME_TO_ML.get(from) / VOLUME_TO_ML.get(to));
+
+        if (WEIGHT_TO_GRAMS.containsKey(from) && WEIGHT_TO_GRAMS.containsKey(to))
+            return OptionalDouble.of(quantity * WEIGHT_TO_GRAMS.get(from) / WEIGHT_TO_GRAMS.get(to));
+
+        return OptionalDouble.empty();
+    }
+
     private final InventoryItemRepository inventoryItemRepository;
     private final LocationRepository locationRepository;
+    private final RecipeRepository recipeRepository;
 
-    public InventoryService(InventoryItemRepository inventoryItemRepository, LocationRepository locationRepository) {
+    public InventoryService(InventoryItemRepository inventoryItemRepository, LocationRepository locationRepository, RecipeRepository recipeRepository) {
         this.inventoryItemRepository = inventoryItemRepository;
         this.locationRepository = locationRepository;
+        this.recipeRepository = recipeRepository;
     }
 
     public InventoryItemDTO addItem(InventoryItemDTO dto) {
@@ -110,6 +172,77 @@ public class InventoryService {
         return inventoryItemRepository.findExpiredItems().stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
+    }
+
+    public CookResultDTO cookRecipe(Long recipeId) {
+        var recipe = recipeRepository.findById(recipeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Recipe not found: " + recipeId));
+
+        List<String> consumed = new ArrayList<>();
+        List<String> unmatched = new ArrayList<>();
+
+        for (RecipeIngredient ingredient : recipe.getIngredients()) {
+            List<InventoryItem> candidates = inventoryItemRepository
+                    .findByNameContainingIgnoreCase(ingredient.getIngredientName());
+
+            if (candidates.isEmpty()) {
+                String lower = ingredient.getIngredientName().toLowerCase();
+                candidates = inventoryItemRepository.findAll().stream()
+                        .filter(item -> lower.contains(item.getName().toLowerCase()))
+                        .collect(Collectors.toList());
+            }
+
+            if (candidates.isEmpty()) {
+                unmatched.add(ingredient.getIngredientName());
+                continue;
+            }
+
+            // Prefer exact unit match; fall back to unit conversion
+            Optional<InventoryItem> exactMatch = candidates.stream()
+                    .filter(item -> item.getUnit().equalsIgnoreCase(ingredient.getUnit()))
+                    .findFirst();
+
+            InventoryItem item;
+            int toDeduct;
+            boolean approximated = false;
+
+            if (exactMatch.isPresent()) {
+                item = exactMatch.get();
+                toDeduct = (int) Math.ceil(ingredient.getQuantity());
+            } else {
+                Optional<InventoryItem> convertibleMatch = candidates.stream()
+                        .filter(c -> convertUnit(ingredient.getQuantity(), ingredient.getUnit(), c.getUnit()).isPresent())
+                        .findFirst();
+
+                if (convertibleMatch.isPresent()) {
+                    item = convertibleMatch.get();
+                    double converted = convertUnit(ingredient.getQuantity(), ingredient.getUnit(), item.getUnit()).getAsDouble();
+                    toDeduct = Math.max(1, (int) Math.ceil(converted));
+                } else {
+                    // Units are incompatible (e.g. grams vs pieces) — deduct 1 as best-effort
+                    item = candidates.get(0);
+                    toDeduct = 1;
+                    approximated = true;
+                }
+            }
+
+            int remaining = item.getQuantity() - toDeduct;
+            String suffix = approximated ? " (unit approximated)" : "";
+
+            if (remaining <= 0) {
+                inventoryItemRepository.delete(item);
+                consumed.add(item.getName() + " (fully used — removed" + suffix + ")");
+            } else {
+                item.setQuantity(remaining);
+                inventoryItemRepository.save(item);
+                consumed.add(item.getName() + ": −" + toDeduct + " " + item.getUnit() + suffix);
+            }
+        }
+
+        return CookResultDTO.builder()
+                .consumed(consumed)
+                .unmatched(unmatched)
+                .build();
     }
 
     private InventoryItemDTO toDTO(InventoryItem item) {

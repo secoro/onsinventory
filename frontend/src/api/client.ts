@@ -1,4 +1,5 @@
 import {
+  CookResult,
   InventoryItem,
   Location,
   Recipe,
@@ -103,5 +104,11 @@ export function addRecipe(payload: {
 export function deleteRecipe(id: number) {
   return request<void>(`/api/recipes/${id}`, {
     method: "DELETE"
+  });
+}
+
+export function cookRecipe(id: number) {
+  return request<CookResult>(`/api/recipes/${id}/cook`, {
+    method: "POST"
   });
 }
