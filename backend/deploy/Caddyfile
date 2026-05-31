@@ -1,9 +1,9 @@
-onsinventory.com, www.onsinventory.com {
+http://onsinventory.local {
     encode gzip zstd
     reverse_proxy onsinventory-frontend:8081
 }
 
-api.onsinventory.com {
+http://api.onsinventory.local {
     encode gzip zstd
     reverse_proxy onsinventory-backend:8080
 }
