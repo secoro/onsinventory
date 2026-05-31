@@ -203,6 +203,8 @@ public class InventoryService {
                 continue;
             }
 
+            if (candidates.stream().anyMatch(c -> "herbs".equalsIgnoreCase(c.getCategory()))) continue;
+
             Optional<InventoryItem> exactMatch = candidates.stream()
                     .filter(item -> normalizeUnit(item.getUnit()).equals(normalizeUnit(ingredient.getUnit())))
                     .findFirst();
@@ -262,6 +264,8 @@ public class InventoryService {
                 unmatched.add(ingredient.getIngredientName());
                 continue;
             }
+
+            if (candidates.stream().anyMatch(c -> "herbs".equalsIgnoreCase(c.getCategory()))) continue;
 
             Optional<InventoryItem> exactMatch = candidates.stream()
                     .filter(item -> normalizeUnit(item.getUnit()).equals(normalizeUnit(ingredient.getUnit())))
