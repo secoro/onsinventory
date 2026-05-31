@@ -433,3 +433,6 @@ java -jar target/onsinventory-backend-1.0.0.jar --spring.profiles.active=prod
 <userPrompt>
 Provide the fully rewritten file, incorporating the suggested code change. You must produce the complete file.
 </userPrompt>
+
+---
+Happy coding!
