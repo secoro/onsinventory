@@ -99,6 +99,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(4);
   const [searchQuery, setSearchQuery] = useState("");
+  const [expiryFilter, setExpiryFilter] = useState<"expiring" | "expired" | null>(null);
 
   useEffect(() => {
     getMe()
@@ -248,9 +249,11 @@ export default function App() {
           (item.notes?.toLowerCase().includes(q) ?? false)
       );
     }
-    if (activeLocation === "All") return inventory;
-    return inventory.filter((item) => item.location === activeLocation);
-  }, [searchQuery, activeLocation, inventory]);
+    let result = activeLocation === "All" ? inventory : inventory.filter((item) => item.location === activeLocation);
+    if (expiryFilter === "expiring") result = result.filter((item) => isExpiring(item));
+    else if (expiryFilter === "expired") result = result.filter((item) => item.expired);
+    return result;
+  }, [searchQuery, activeLocation, inventory, expiryFilter]);
 
   const filteredRecipes = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -272,7 +275,7 @@ export default function App() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeLocation, pageSize, searchQuery]);
+  }, [activeLocation, pageSize, searchQuery, expiryFilter]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -474,14 +477,42 @@ export default function App() {
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <MetricCard icon={<Package className="h-5 w-5" />} label="Items in stock" value={inventory.length} />
               <MetricCard icon={<ChefHat className="h-5 w-5" />} label="Recipes" value={recipes.length} />
-              <MetricCard icon={<AlertTriangle className="h-5 w-5" />} label="Expiring soon" value={expiringCount} />
-              <MetricCard icon={<Flame className="h-5 w-5" />} label="Already expired" value={expiredCount} />
+              <MetricCard
+                icon={<AlertTriangle className="h-5 w-5" />}
+                label="Expiring soon"
+                value={expiringCount}
+                onClick={() => setExpiryFilter((f) => f === "expiring" ? null : "expiring")}
+                active={expiryFilter === "expiring"}
+              />
+              <MetricCard
+                icon={<Flame className="h-5 w-5" />}
+                label="Already expired"
+                value={expiredCount}
+                onClick={() => setExpiryFilter((f) => f === "expired" ? null : "expired")}
+                active={expiryFilter === "expired"}
+              />
             </section>
 
             <section className="grid gap-6 xl:grid-cols-[1.3fr_1fr]">
               <article className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-xl font-semibold">Inventory by location</h2>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-semibold">Inventory by location</h2>
+                    {expiryFilter && !searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setExpiryFilter(null)}
+                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition ${
+                          expiryFilter === "expiring"
+                            ? "bg-amber-500/20 text-amber-200 hover:bg-amber-500/30"
+                            : "bg-rose-500/20 text-rose-200 hover:bg-rose-500/30"
+                        }`}
+                      >
+                        {expiryFilter === "expiring" ? "Expiring soon" : "Already expired"}
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
                   {!searchQuery && (
                     <div className="flex flex-wrap gap-2">
                       {["All", ...(locationsQuery.data?.map((location) => location.name) ?? [])].map((name) => (
@@ -1215,14 +1246,26 @@ function ChangePasswordModal({
 function MetricCard({
   icon,
   label,
-  value
+  value,
+  onClick,
+  active
 }: {
   icon: ReactNode;
   label: string;
   value: number;
+  onClick?: () => void;
+  active?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5">
+    <div
+      className={`rounded-2xl border bg-slate-900/80 p-5 transition ${
+        onClick ? "cursor-pointer hover:bg-slate-800/80" : ""
+      } ${active ? "border-brand-500 ring-1 ring-brand-500" : "border-slate-800"}`}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
+    >
       <div className="flex items-center gap-2 text-brand-100">{icon}</div>
       <p className="mt-3 text-sm text-slate-300">{label}</p>
       <p className="mt-1 text-3xl font-semibold text-white">{value}</p>
