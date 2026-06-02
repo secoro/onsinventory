@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
+  Calendar,
   ChefHat,
   Flame,
   KeyRound,
@@ -39,6 +40,7 @@ import {
 } from "./api/client";
 import { recommendationLabel, topRecommendation } from "./lib/recommendation";
 import { AuthUser, CookResult, InventoryItem, Recipe, RecipeIngredient } from "./types";
+import MealPlannerPage from "./pages/MealPlanner";
 
 const colors = ["#3b82f6", "#22c55e", "#eab308", "#ef4444", "#8b5cf6", "#14b8a6"];
 const pageSizeOptions = [4, 8, 12];
@@ -100,6 +102,7 @@ export default function App() {
   const [pageSize, setPageSize] = useState(4);
   const [searchQuery, setSearchQuery] = useState("");
   const [expiryFilter, setExpiryFilter] = useState<"expiring" | "expired" | null>(null);
+  const [page, setPage] = useState<"home" | "planner">("home");
 
   useEffect(() => {
     getMe()
@@ -448,6 +451,30 @@ export default function App() {
           </div>
         </motion.header>
 
+        <nav className="flex gap-1 rounded-2xl border border-slate-800 bg-slate-900/80 p-1">
+          <button
+            type="button"
+            onClick={() => setPage("home")}
+            className={`flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-medium transition ${
+              page === "home" ? "bg-brand-600 text-white" : "text-slate-300 hover:bg-slate-800"
+            }`}
+          >
+            <Package className="h-4 w-4" />
+            Inventory
+          </button>
+          <button
+            type="button"
+            onClick={() => setPage("planner")}
+            className={`flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-medium transition ${
+              page === "planner" ? "bg-brand-600 text-white" : "text-slate-300 hover:bg-slate-800"
+            }`}
+          >
+            <Calendar className="h-4 w-4" />
+            Meal Planner
+          </button>
+        </nav>
+
+        {page === "home" && <>
         <div className="relative">
           <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
@@ -916,6 +943,9 @@ export default function App() {
             </section>
           </>
         )}
+        </>}
+
+        {page === "planner" && <MealPlannerPage recipes={recipes} />}
 
         {selectedRecipe && (() => {
           const baseServings = selectedRecipe.servings ?? 1;
