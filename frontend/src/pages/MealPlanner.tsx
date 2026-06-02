@@ -10,7 +10,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { ChevronLeft, ChevronRight, Check, Copy, GripVertical, Search, Share2, ShoppingCart, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Copy, GripVertical, Minus, Plus, Search, Share2, ShoppingCart, X } from "lucide-react";
 import { InventoryItem, Recipe } from "../types";
 
 // ─── Local types ────────────────────────────────────────────────────────────
@@ -183,11 +183,13 @@ function DroppableDayColumn({
   meals,
   isToday,
   onRemoveMeal,
+  onUpdateServings,
 }: {
   date: Date;
   meals: PlannedMeal[];
   isToday: boolean;
   onRemoveMeal: (id: string) => void;
+  onUpdateServings: (id: string, servings: number) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: toDateKey(date) });
 
@@ -214,15 +216,36 @@ function DroppableDayColumn({
 
       <div className="flex-1 p-1.5 space-y-1">
         {meals.map((meal) => (
-          <div key={meal.id} className="group flex items-start justify-between gap-1 rounded-lg bg-brand-600/20 px-2 py-1.5">
-            <p className="text-[11px] text-brand-100 font-medium leading-tight break-words min-w-0">{meal.recipeName}</p>
-            <button
-              type="button"
-              onClick={() => onRemoveMeal(meal.id)}
-              className="shrink-0 rounded p-0.5 text-brand-300 opacity-0 group-hover:opacity-100 hover:bg-brand-500/30 transition"
-            >
-              <X className="h-2.5 w-2.5" />
-            </button>
+          <div key={meal.id} className="group rounded-lg bg-brand-600/20 px-2 py-1.5">
+            <div className="flex items-start justify-between gap-1">
+              <p className="text-[11px] text-brand-100 font-medium leading-tight break-words min-w-0">{meal.recipeName}</p>
+              <button
+                type="button"
+                onClick={() => onRemoveMeal(meal.id)}
+                className="shrink-0 rounded p-0.5 text-brand-300 opacity-0 group-hover:opacity-100 hover:bg-brand-500/30 transition"
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </div>
+            <div className="flex items-center gap-1 mt-1">
+              <button
+                type="button"
+                onClick={() => onUpdateServings(meal.id, Math.max(1, meal.servings - 1))}
+                className="rounded p-0.5 text-brand-300 hover:bg-brand-500/30 transition"
+              >
+                <Minus className="h-2.5 w-2.5" />
+              </button>
+              <span className="text-[10px] text-brand-200 min-w-[1.75rem] text-center tabular-nums">
+                {meal.servings}p
+              </span>
+              <button
+                type="button"
+                onClick={() => onUpdateServings(meal.id, meal.servings + 1)}
+                className="rounded p-0.5 text-brand-300 hover:bg-brand-500/30 transition"
+              >
+                <Plus className="h-2.5 w-2.5" />
+              </button>
+            </div>
           </div>
         ))}
         {isOver && (
@@ -417,6 +440,13 @@ export default function MealPlannerPage({ recipes, inventory }: { recipes: Recip
     }));
   }
 
+  function updateServings(dateKey: string, mealId: string, servings: number) {
+    setMealPlan((prev) => ({
+      ...prev,
+      [dateKey]: (prev[dateKey] ?? []).map((m) => m.id === mealId ? { ...m, servings } : m),
+    }));
+  }
+
   const weekLabel = (() => {
     const s = weekDays[0], e = weekDays[6];
     return s.getMonth() === e.getMonth()
@@ -481,6 +511,7 @@ export default function MealPlannerPage({ recipes, inventory }: { recipes: Recip
                     meals={mealPlan[key] ?? []}
                     isToday={key === todayKey}
                     onRemoveMeal={(mealId) => removeMeal(key, mealId)}
+                    onUpdateServings={(mealId, servings) => updateServings(key, mealId, servings)}
                   />
                 );
               })}
