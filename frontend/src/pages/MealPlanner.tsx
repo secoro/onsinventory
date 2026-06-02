@@ -11,7 +11,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { ChevronLeft, ChevronRight, Check, Copy, GripVertical, Search, Share2, ShoppingCart, X } from "lucide-react";
-import { Recipe } from "../types";
+import { InventoryItem, Recipe } from "../types";
 
 // ─── Local types ────────────────────────────────────────────────────────────
 
@@ -23,8 +23,6 @@ type PlannedMeal = {
 };
 
 type MealPlan = Record<string, PlannedMeal[]>; // key: YYYY-MM-DD
-
-type GroceryItem = { name: string; quantity: number; unit: string };
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -62,37 +60,79 @@ function dayIndex(date: Date): number {
 
 // ─── Grocery helpers ─────────────────────────────────────────────────────────
 
-function formatQty(n: number): string {
-  const r = Math.round(n * 10) / 10;
-  return Number.isInteger(r) ? String(r) : r.toFixed(1);
+// Low-stock thresholds: if inventory is at or below these levels, flag for restock
+// even when you technically have enough for your planned meals.
+function isLowStock(quantity: number, unit: string): boolean {
+  const u = unit.toLowerCase().trim();
+  if (["g", "gram", "grams"].includes(u)) return quantity <= 200;
+  if (["kg", "kilogram", "kilograms"].includes(u)) return quantity <= 0.5;
+  if (["ml", "milliliter", "milliliters", "millilitre", "millilitres"].includes(u)) return quantity <= 200;
+  if (["l", "liter", "liters", "litre", "litres"].includes(u)) return quantity <= 0.5;
+  if (["cl", "centiliter", "centiliters", "centilitre", "centilitres"].includes(u)) return quantity <= 20;
+  return quantity <= 5; // pieces, cloves, tbsp, tsp, items, etc.
 }
 
-function buildGroceryList(mealPlan: MealPlan, recipes: Recipe[], weekDays: Date[]): GroceryItem[] {
-  const map = new Map<string, GroceryItem>();
+function buildGroceryList(
+  mealPlan: MealPlan,
+  recipes: Recipe[],
+  weekDays: Date[],
+  inventory: InventoryItem[]
+): string[] {
+  // Collect total needed per ingredient (key = lowercase name, value = { displayName, units })
+  const needed = new Map<string, { displayName: string; units: Map<string, number> }>();
   for (const date of weekDays) {
     for (const meal of mealPlan[toDateKey(date)] ?? []) {
       const recipe = recipes.find((r) => r.id === meal.recipeId);
       if (!recipe) continue;
       const scale = meal.servings / (recipe.servings ?? 1);
       for (const ing of recipe.ingredients) {
-        const key = `${ing.ingredientName.toLowerCase()}|||${ing.unit.toLowerCase()}`;
-        const existing = map.get(key);
-        if (existing) {
-          existing.quantity += ing.quantity * scale;
-        } else {
-          map.set(key, { name: ing.ingredientName, quantity: ing.quantity * scale, unit: ing.unit });
-        }
+        const key = ing.ingredientName.toLowerCase().trim();
+        if (!needed.has(key)) needed.set(key, { displayName: ing.ingredientName, units: new Map() });
+        const entry = needed.get(key)!;
+        const unitKey = ing.unit.toLowerCase().trim();
+        entry.units.set(unitKey, (entry.units.get(unitKey) ?? 0) + ing.quantity * scale);
       }
     }
   }
-  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+
+  const activeInventory = inventory.filter((item) => !item.expired);
+  const result: string[] = [];
+
+  for (const [key, { displayName, units }] of needed) {
+    // Match inventory items by name (case-insensitive, handles plural/singular)
+    const matches = activeInventory.filter((item) => {
+      const n = item.name.toLowerCase().trim();
+      return n === key || n.includes(key) || key.includes(n);
+    });
+
+    let addToList = matches.length === 0; // not in stock at all
+
+    if (!addToList) {
+      // Check if we have enough for the planned meals
+      for (const [unit, totalNeeded] of units) {
+        const available = matches
+          .filter((item) => item.unit.toLowerCase().trim() === unit)
+          .reduce((sum, item) => sum + item.quantity, 0);
+        if (available < totalNeeded) { addToList = true; break; }
+      }
+    }
+
+    if (!addToList) {
+      // Even if meals are covered, flag if any matching item is running low
+      addToList = matches.some((item) => isLowStock(item.quantity, item.unit));
+    }
+
+    if (addToList) result.push(displayName);
+  }
+
+  return result.sort((a, b) => a.localeCompare(b));
 }
 
-function groceryText(items: GroceryItem[], weekDays: Date[]): string {
+function groceryText(items: string[], weekDays: Date[]): string {
   const s = weekDays[0], e = weekDays[6];
   const header = `Grocery list ${s.getDate()} ${MONTH_SHORT[s.getMonth()]} – ${e.getDate()} ${MONTH_SHORT[e.getMonth()]} ${e.getFullYear()}`;
-  if (items.length === 0) return `${header}\n\nNo meals planned.`;
-  return `${header}\n\n${items.map((i) => `• ${formatQty(i.quantity)} ${i.unit} ${i.name}`).join("\n")}`;
+  if (items.length === 0) return `${header}\n\nYou're well stocked — nothing to buy!`;
+  return `${header}\n\n${items.map((name) => `• ${name}`).join("\n")}`;
 }
 
 // ─── Draggable recipe card ────────────────────────────────────────────────────
@@ -205,7 +245,7 @@ function GroceryModal({
   weekDays,
   onClose,
 }: {
-  items: GroceryItem[];
+  items: string[];
   weekDays: Date[];
   onClose: () => void;
 }) {
@@ -261,18 +301,16 @@ function GroceryModal({
 
         <div className="mt-4 flex-1 overflow-y-auto">
           {items.length === 0 ? (
-            <p className="text-sm text-slate-400">No meals planned for this week yet.</p>
+            <p className="text-sm text-emerald-400">You're well stocked — nothing to buy!</p>
           ) : (
             <ul className="space-y-1.5">
-              {items.map((item) => (
+              {items.map((name) => (
                 <li
-                  key={`${item.name}|||${item.unit}`}
+                  key={name}
                   className="flex items-center gap-3 rounded-lg bg-slate-800/70 px-3 py-2 text-sm"
                 >
-                  <span className="text-slate-400 w-24 shrink-0 text-right tabular-nums">
-                    {formatQty(item.quantity)} {item.unit}
-                  </span>
-                  <span className="text-white">{item.name}</span>
+                  <span className="text-slate-500">•</span>
+                  <span className="text-white">{name}</span>
                 </li>
               ))}
             </ul>
@@ -306,7 +344,7 @@ function GroceryModal({
 
 // ─── Main page component ──────────────────────────────────────────────────────
 
-export default function MealPlannerPage({ recipes }: { recipes: Recipe[] }) {
+export default function MealPlannerPage({ recipes, inventory }: { recipes: Recipe[]; inventory: InventoryItem[] }) {
   const [weekOffset, setWeekOffset] = useState(0);
   const [mealPlan, setMealPlan] = useState<MealPlan>(() => {
     try {
@@ -342,8 +380,8 @@ export default function MealPlannerPage({ recipes }: { recipes: Recipe[] }) {
   }, [recipeSearch, recipes]);
 
   const groceryItems = useMemo(
-    () => buildGroceryList(mealPlan, recipes, weekDays),
-    [mealPlan, recipes, weekDays]
+    () => buildGroceryList(mealPlan, recipes, weekDays, inventory),
+    [mealPlan, recipes, weekDays, inventory]
   );
 
   function handleDragStart(event: DragStartEvent) {

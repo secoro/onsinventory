@@ -945,7 +945,7 @@ export default function App() {
         )}
         </>}
 
-        {page === "planner" && <MealPlannerPage recipes={recipes} />}
+        {page === "planner" && <MealPlannerPage recipes={recipes} inventory={inventory} />}
 
         {selectedRecipe && (() => {
           const baseServings = selectedRecipe.servings ?? 1;
