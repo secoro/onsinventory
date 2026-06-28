@@ -154,6 +154,10 @@ export function login(username: string, password: string) {
   });
 }
 
+export function getAuthConfig() {
+  return request<{ securityEnabled: boolean }>("/api/auth/config");
+}
+
 export function getMe() {
   return request<{ username: string; firstName: string }>("/api/auth/me");
 }

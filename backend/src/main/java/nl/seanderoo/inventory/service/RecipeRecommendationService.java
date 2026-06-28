@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.*;
+import java.util.OptionalDouble;
 import java.util.stream.Collectors;
 
 @Service
@@ -72,11 +73,8 @@ public class RecipeRecommendationService {
                 .filter(ing -> !ing.isOptional())
                 .collect(Collectors.toSet());
 
-        Set<String> inventoryItemNames = inventory.stream()
-                .map(item -> item.getName().toLowerCase())
-                .collect(Collectors.toSet());
-
         List<String> missingIngredients = new ArrayList<>();
+        List<String> insufficientIngredients = new ArrayList<>();
         List<String> matchedIngredientsUsed = new ArrayList<>();
         List<String> expiringIngredientsUsed = new ArrayList<>();
 
@@ -84,33 +82,37 @@ public class RecipeRecommendationService {
 
         for (RecipeIngredient ingredient : requiredIngredients) {
             String ingredientNameLower = ingredient.getIngredientName().toLowerCase();
-            boolean found = false;
+            InventoryItem matchedItem = null;
 
-            // Try exact match or partial match
-            for (String inventoryItem : inventoryItemNames) {
-                if (inventoryItem.equals(ingredientNameLower) ||
-                    inventoryItem.contains(ingredientNameLower) ||
-                    ingredientNameLower.contains(inventoryItem)) {
-                    found = true;
-                    matchedIngredientsUsed.add(ingredient.getIngredientName());
-
-                    // Check if this ingredient is expiring soon
-                    Optional<InventoryItem> expiringItem = inventory.stream()
-                            .filter(item -> item.getName().toLowerCase().equals(inventoryItem))
-                            .filter(InventoryItem::isExpiredOrExpiringSoon)
-                            .findFirst();
-
-                    if (expiringItem.isPresent()) {
-                        expiringIngredientsUsed.add(ingredient.getIngredientName());
-                    }
+            for (InventoryItem item : inventory) {
+                String itemNameLower = item.getName().toLowerCase();
+                if (itemNameLower.equals(ingredientNameLower) ||
+                    itemNameLower.contains(ingredientNameLower) ||
+                    ingredientNameLower.contains(itemNameLower)) {
+                    matchedItem = item;
                     break;
                 }
             }
 
-            if (found) {
-                matchedCount++;
-            } else {
+            if (matchedItem == null) {
                 missingIngredients.add(ingredient.getIngredientName());
+                continue;
+            }
+
+            if ("herbs".equalsIgnoreCase(matchedItem.getCategory())) {
+                matchedCount++;
+                matchedIngredientsUsed.add(ingredient.getIngredientName());
+            } else if (!hasEnoughQuantity(ingredient, matchedItem)) {
+                insufficientIngredients.add(ingredient.getIngredientName());
+                matchedCount++;
+                matchedIngredientsUsed.add(ingredient.getIngredientName());
+            } else {
+                matchedCount++;
+                matchedIngredientsUsed.add(ingredient.getIngredientName());
+            }
+
+            if (matchedItem.isExpiredOrExpiringSoon()) {
+                expiringIngredientsUsed.add(ingredient.getIngredientName());
             }
         }
 
@@ -123,8 +125,26 @@ public class RecipeRecommendationService {
                 .matchedIngredients(matchedCount)
                 .totalIngredients(requiredIngredients.size())
                 .missingIngredients(missingIngredients)
+                .insufficientIngredients(insufficientIngredients)
                 .expiringIngredientsUsed(expiringIngredientsUsed)
                 .build();
+    }
+
+    private boolean hasEnoughQuantity(RecipeIngredient ingredient, InventoryItem item) {
+        double needed = ingredient.getQuantity();
+        String neededUnit = InventoryService.normalizeUnit(ingredient.getUnit());
+        String haveUnit = InventoryService.normalizeUnit(item.getUnit());
+
+        if (neededUnit.equals(haveUnit)) {
+            return item.getQuantity() >= needed;
+        }
+
+        OptionalDouble converted = InventoryService.convertUnit(needed, ingredient.getUnit(), item.getUnit());
+        if (converted.isPresent()) {
+            return item.getQuantity() >= converted.getAsDouble();
+        }
+
+        return true;
     }
 
     public List<RecipeRecommendationDTO> getRecipesUsingExpiringItems(Integer limit) {
@@ -180,6 +200,7 @@ public class RecipeRecommendationService {
                 .matchedIngredients(matchedCount)
                 .totalIngredients(requiredIngredients.size())
                 .missingIngredients(new ArrayList<>())
+                .insufficientIngredients(new ArrayList<>())
                 .expiringIngredientsUsed(expiringIngredientsUsed)
                 .build();
     }

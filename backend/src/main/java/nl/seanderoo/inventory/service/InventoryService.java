@@ -72,7 +72,7 @@ public class InventoryService {
         };
     }
 
-    private static OptionalDouble convertUnit(double quantity, String fromUnit, String toUnit) {
+    static OptionalDouble convertUnit(double quantity, String fromUnit, String toUnit) {
         String from = normalizeUnit(fromUnit);
         String to = normalizeUnit(toUnit);
         if (from.equals(to)) return OptionalDouble.of(quantity);

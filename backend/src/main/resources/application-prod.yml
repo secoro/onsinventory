@@ -43,6 +43,8 @@ management:
       show-details: when-authorized
 
 app:
+  security:
+    enabled: true
   bootstrap:
     enabled: true
   jwt:

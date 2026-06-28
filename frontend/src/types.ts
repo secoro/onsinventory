@@ -65,5 +65,6 @@ export type RecipeRecommendation = {
   matchedIngredients: number;
   totalIngredients: number;
   missingIngredients: string[];
+  insufficientIngredients: string[];
   expiringIngredientsUsed: string[];
 };

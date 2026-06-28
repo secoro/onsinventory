@@ -7,16 +7,22 @@ import nl.seanderoo.inventory.model.User;
 import nl.seanderoo.inventory.service.JwtService;
 import nl.seanderoo.inventory.service.UserService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/auth")
 @CrossOrigin(origins = "*", maxAge = 3600)
 public class AuthController {
+
+    @Value("${app.security.enabled:true}")
+    private boolean securityEnabled;
 
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
@@ -26,6 +32,11 @@ public class AuthController {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.userService = userService;
+    }
+
+    @GetMapping("/config")
+    public ResponseEntity<Map<String, Boolean>> config() {
+        return ResponseEntity.ok(Map.of("securityEnabled", securityEnabled));
     }
 
     @PostMapping("/login")

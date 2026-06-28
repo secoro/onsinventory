@@ -31,6 +31,8 @@ logging:
     org.hibernate.SQL: DEBUG
 
 app:
+  security:
+    enabled: false
   bootstrap:
     enabled: true
   jwt:

@@ -10,7 +10,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { ChevronLeft, ChevronRight, Check, Copy, GripVertical, Minus, Plus, Search, Share2, ShoppingCart, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Copy, GripVertical, Minus, Plus, Search, ShoppingCart, X } from "lucide-react";
 import { InventoryItem, Recipe } from "../types";
 
 // ─── Local types ────────────────────────────────────────────────────────────
@@ -60,16 +60,30 @@ function dayIndex(date: Date): number {
 
 // ─── Grocery helpers ─────────────────────────────────────────────────────────
 
-// Low-stock thresholds: if inventory is at or below these levels, flag for restock
-// even when you technically have enough for your planned meals.
-function isLowStock(quantity: number, unit: string): boolean {
-  const u = unit.toLowerCase().trim();
-  if (["g", "gram", "grams"].includes(u)) return quantity <= 200;
-  if (["kg", "kilogram", "kilograms"].includes(u)) return quantity <= 0.5;
-  if (["ml", "milliliter", "milliliters", "millilitre", "millilitres"].includes(u)) return quantity <= 200;
-  if (["l", "liter", "liters", "litre", "litres"].includes(u)) return quantity <= 0.5;
-  if (["cl", "centiliter", "centiliters", "centilitre", "centilitres"].includes(u)) return quantity <= 20;
-  return quantity <= 5; // pieces, cloves, tbsp, tsp, items, etc.
+const HERB_SPICE_NAMES = new Set([
+  "basil", "oregano", "thyme", "rosemary", "sage", "parsley", "cilantro", "coriander",
+  "mint", "dill", "tarragon", "chervil", "bay leaf", "bay leaves", "marjoram", "chives",
+  "lemongrass", "kaffir lime leaves", "curry leaves", "bay",
+  "salt", "pepper", "black pepper", "white pepper", "cayenne", "paprika", "turmeric",
+  "cumin", "cardamom", "cinnamon", "nutmeg", "cloves", "allspice", "anise", "star anise",
+  "fennel seeds", "caraway", "saffron", "vanilla", "ginger powder", "garlic powder",
+  "onion powder", "chili powder", "curry powder", "garam masala", "five spice",
+  "mixed herbs", "dried herbs", "italian seasoning", "herbes de provence",
+  "red pepper flakes", "chili flakes", "smoked paprika", "dried oregano", "dried basil",
+  "dried thyme", "dried rosemary", "dried parsley", "dried cilantro",
+]);
+
+function isHerbOrSpice(ingredientName: string, matches: InventoryItem[]): boolean {
+  const name = ingredientName.toLowerCase().trim();
+  if (HERB_SPICE_NAMES.has(name)) return true;
+  for (const herb of HERB_SPICE_NAMES) {
+    if (name.includes(herb)) return true;
+  }
+  // If all matching inventory items are categorised as herb/spice, skip it
+  if (matches.length > 0 && matches.every((item) =>
+    ["herb", "herbs", "spice", "spices"].includes(item.category.toLowerCase().trim())
+  )) return true;
+  return false;
 }
 
 function buildGroceryList(
@@ -79,8 +93,12 @@ function buildGroceryList(
   inventory: InventoryItem[]
 ): string[] {
   // Collect total needed per ingredient (key = lowercase name, value = { displayName, units })
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   const needed = new Map<string, { displayName: string; units: Map<string, number> }>();
   for (const date of weekDays) {
+    if (date < today) continue; // past days are already done — don't add to shopping list
     for (const meal of mealPlan[toDateKey(date)] ?? []) {
       const recipe = recipes.find((r) => r.id === meal.recipeId);
       if (!recipe) continue;
@@ -99,11 +117,13 @@ function buildGroceryList(
   const result: string[] = [];
 
   for (const [key, { displayName, units }] of needed) {
-    // Match inventory items by name (case-insensitive, handles plural/singular)
     const matches = activeInventory.filter((item) => {
       const n = item.name.toLowerCase().trim();
       return n === key || n.includes(key) || key.includes(n);
     });
+
+    // Never put herbs/spices on the shopping list
+    if (isHerbOrSpice(displayName, matches)) continue;
 
     let addToList = matches.length === 0; // not in stock at all
 
@@ -115,11 +135,6 @@ function buildGroceryList(
           .reduce((sum, item) => sum + item.quantity, 0);
         if (available < totalNeeded) { addToList = true; break; }
       }
-    }
-
-    if (!addToList) {
-      // Even if meals are covered, flag if any matching item is running low
-      addToList = matches.some((item) => isLowStock(item.quantity, item.unit));
     }
 
     if (addToList) result.push(displayName);
@@ -274,21 +289,9 @@ function GroceryModal({
 }) {
   const [copied, setCopied] = useState(false);
   const text = groceryText(items, weekDays);
-  const canShare = typeof navigator !== "undefined" && !!navigator.share;
 
-  const share = async () => {
-    const payload = { title: "Grocery list", text };
-    try {
-      if (canShare && navigator.canShare(payload)) {
-        await navigator.share(payload);
-      } else {
-        await navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2500);
-      }
-    } catch {
-      // user cancelled
-    }
+  const openWhatsApp = () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
   };
 
   const copy = async () => {
@@ -343,22 +346,23 @@ function GroceryModal({
         <div className="mt-4 shrink-0 flex gap-2 border-t border-slate-800 pt-4">
           <button
             type="button"
-            onClick={share}
-            className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500 transition"
+            onClick={openWhatsApp}
+            className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-[#25D366] px-4 py-2 font-medium text-white hover:bg-[#1ebe5a] transition"
           >
-            <Share2 className="h-4 w-4" />
-            {canShare ? "Share" : copied ? "Copied!" : "Copy"}
+            {/* WhatsApp logo */}
+            <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current" xmlns="http://www.w3.org/2000/svg">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+            </svg>
+            WhatsApp
           </button>
-          {canShare && (
-            <button
-              type="button"
-              onClick={copy}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-600 px-4 py-2 text-slate-200 hover:bg-slate-800 transition"
-            >
-              {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
-              {copied ? "Copied!" : "Copy"}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={copy}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-600 px-4 py-2 text-slate-200 hover:bg-slate-800 transition"
+          >
+            {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+            {copied ? "Copied!" : "Copy"}
+          </button>
         </div>
       </div>
     </div>

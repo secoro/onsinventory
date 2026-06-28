@@ -81,8 +81,8 @@ public class DataInitializationConfig {
                 tomatoIngredients.add(RecipeIngredient.builder()
                         .recipe(tomatoPasta)
                         .ingredientName("Tomato")
-                        .quantity(500.0)
-                        .unit("grams")
+                        .quantity(4.0)
+                        .unit("pieces")
                         .optional(false)
                         .build());
                 tomatoIngredients.add(RecipeIngredient.builder()

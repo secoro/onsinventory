@@ -5,6 +5,10 @@ services:
     ports:
       - "8080:80"
 
+  onsinventory-backend:
+    environment:
+      APP_SECURITY_ENABLED: "false"
+
   onsinventory-frontend:
     build:
       args:

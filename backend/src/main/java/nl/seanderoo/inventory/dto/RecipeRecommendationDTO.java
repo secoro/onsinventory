@@ -17,5 +17,6 @@ public class RecipeRecommendationDTO {
     private Integer matchedIngredients;
     private Integer totalIngredients;
     private List<String> missingIngredients;
+    private List<String> insufficientIngredients;
     private List<String> expiringIngredientsUsed; // Ingredients that are expiring soon
 }

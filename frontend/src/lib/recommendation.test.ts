@@ -16,6 +16,7 @@ describe("recommendation helpers", () => {
         matchedIngredients: 2,
         totalIngredients: 5,
         missingIngredients: ["salt"],
+        insufficientIngredients: [],
         expiringIngredientsUsed: []
       },
       {
@@ -24,6 +25,7 @@ describe("recommendation helpers", () => {
         matchedIngredients: 3,
         totalIngredients: 3,
         missingIngredients: [],
+        insufficientIngredients: [],
         expiringIngredientsUsed: ["Tomato"]
       }
     ]);

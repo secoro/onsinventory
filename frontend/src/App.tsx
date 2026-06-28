@@ -28,6 +28,7 @@ import {
   cookRecipe,
   deleteInventoryItem,
   deleteRecipe,
+  getAuthConfig,
   getInventory,
   getLocations,
   getMe,
@@ -105,10 +106,27 @@ export default function App() {
   const [page, setPage] = useState<"home" | "planner">("home");
 
   useEffect(() => {
-    getMe()
-      .then((user) => setAuthUser({ ...user, token: localStorage.getItem("auth_token") ?? "" }))
-      .catch(() => { clearToken(); setAuthUser(null); })
-      .finally(() => setAuthChecked(true));
+    if (import.meta.env.VITE_SECURITY_ENABLED === "false") {
+      setAuthUser({ username: "local", firstName: "Developer", token: "" });
+      setAuthChecked(true);
+      return;
+    }
+    getAuthConfig()
+      .then((config) => {
+        if (!config.securityEnabled) {
+          setAuthUser({ username: "local", firstName: "Developer", token: "" });
+          setAuthChecked(true);
+          return;
+        }
+        getMe()
+          .then((user) => setAuthUser({ ...user, token: localStorage.getItem("auth_token") ?? "" }))
+          .catch(() => { clearToken(); setAuthUser(null); })
+          .finally(() => setAuthChecked(true));
+      })
+      .catch(() => {
+        setAuthUser({ username: "local", firstName: "Developer", token: "" });
+        setAuthChecked(true);
+      });
   }, []);
 
   const loginMutation = useMutation({
@@ -805,6 +823,11 @@ export default function App() {
                     {recommendation.expiringIngredientsUsed.length > 0 && (
                       <p className="mt-2 text-xs text-amber-200">
                         Use soon: {recommendation.expiringIngredientsUsed.join(", ")}
+                      </p>
+                    )}
+                    {recommendation.insufficientIngredients?.length > 0 && (
+                      <p className="mt-2 text-xs text-amber-300">
+                        Not enough: {recommendation.insufficientIngredients.join(", ")}
                       </p>
                     )}
                     {recommendation.missingIngredients.length > 0 && (

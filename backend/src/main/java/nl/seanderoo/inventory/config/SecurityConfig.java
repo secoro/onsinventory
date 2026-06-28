@@ -30,6 +30,9 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:4173,http://localhost:3000,https://onsinventory.com,https://www.onsinventory.com,http://onsinventory.local}")
     private List<String> allowedOrigins;
 
+    @Value("${app.security.enabled:true}")
+    private boolean securityEnabled;
+
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
@@ -44,16 +47,25 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::disable))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/login").permitAll()
-                        .requestMatchers("/h2-console/**").permitAll()
-                        .anyRequest().authenticated()
-                )
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authenticationProvider(authenticationProvider())
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::disable));
+
+        if (securityEnabled) {
+            http
+                    .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                    .authorizeHttpRequests(auth -> auth
+                            .requestMatchers("/api/auth/login").permitAll()
+                            .requestMatchers("/api/auth/config").permitAll()
+                            .requestMatchers("/h2-console/**").permitAll()
+                            .anyRequest().authenticated()
+                    )
+                    .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                    .authenticationProvider(authenticationProvider())
+                    .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+        } else {
+            http
+                    .cors(cors -> cors.configurationSource(permissiveCorsSource()))
+                    .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+        }
 
         return http.build();
     }
@@ -78,6 +90,17 @@ public class SecurityConfig {
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(false);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
+    private CorsConfigurationSource permissiveCorsSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(List.of("*"));
+        configuration.setAllowedMethods(List.of("*"));
+        configuration.setAllowedHeaders(List.of("*"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
