@@ -8,11 +8,13 @@ import {
   Flame,
   KeyRound,
   LogOut,
+  Moon,
   Package,
   Pencil,
   Refrigerator,
   Search,
   Sparkles,
+  Sun,
   Trash2,
   Undo2,
   UtensilsCrossed,
@@ -104,6 +106,12 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [expiryFilter, setExpiryFilter] = useState<"expiring" | "expired" | null>(null);
   const [page, setPage] = useState<"home" | "planner">("home");
+  const [dark, setDark] = useState<boolean>(() => localStorage.getItem("theme") !== "light");
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", dark);
+    localStorage.setItem("theme", dark ? "dark" : "light");
+  }, [dark]);
 
   useEffect(() => {
     if (import.meta.env.VITE_SECURITY_ENABLED === "false") {
@@ -407,7 +415,7 @@ export default function App() {
 
   if (!authChecked) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-slate-400">
+      <div className="flex min-h-screen items-center justify-center text-slate-500 dark:text-slate-400">
         Loading...
       </div>
     );
@@ -418,18 +426,18 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen px-4 py-8 text-slate-100 md:px-8 lg:px-12">
+    <div className="min-h-screen px-4 py-8 text-slate-800 dark:text-slate-100 md:px-8 lg:px-12">
       <main className="mx-auto max-w-7xl space-y-8">
         <motion.header
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-glow"
+          className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-6 shadow-glow"
         >
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-sm uppercase tracking-[0.2em] text-brand-100">ONS Inventory</p>
-              <h1 className="mt-2 text-3xl font-semibold text-white">Welcome, {authUser.firstName}!</h1>
-              <p className="mt-2 text-slate-300">
+              <p className="text-sm uppercase tracking-[0.2em] text-brand-600 dark:text-brand-100">ONS Inventory</p>
+              <h1 className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">Welcome, {authUser.firstName}!</h1>
+              <p className="mt-2 text-slate-600 dark:text-slate-300">
                 Track pantry, fridge, and freezer stock and get recipe ideas before ingredients expire.
               </p>
             </div>
@@ -437,8 +445,16 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => setDark((d) => !d)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  {dark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+                  {dark ? "Light" : "Dark"}
+                </button>
+                <button
+                  type="button"
                   onClick={() => setShowChangePassword(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 >
                   <KeyRound className="h-3.5 w-3.5" />
                   Change password
@@ -446,13 +462,13 @@ export default function App() {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 >
                   <LogOut className="h-3.5 w-3.5" />
                   Logout
                 </button>
               </div>
-              <div className="rounded-xl bg-brand-600/20 px-4 py-3 text-sm text-brand-50">
+              <div className="rounded-xl bg-brand-100 dark:bg-brand-600/20 px-4 py-3 text-sm text-brand-800 dark:text-brand-50">
                 {topMatch ? (
                   <>
                     <div className="font-medium">Top suggestion</div>
@@ -469,12 +485,12 @@ export default function App() {
           </div>
         </motion.header>
 
-        <nav className="flex gap-1 rounded-2xl border border-slate-800 bg-slate-900/80 p-1">
+        <nav className="flex gap-1 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-1">
           <button
             type="button"
             onClick={() => setPage("home")}
             className={`flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-medium transition ${
-              page === "home" ? "bg-brand-600 text-white" : "text-slate-300 hover:bg-slate-800"
+              page === "home" ? "bg-brand-600 text-white" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
             }`}
           >
             <Package className="h-4 w-4" />
@@ -484,7 +500,7 @@ export default function App() {
             type="button"
             onClick={() => setPage("planner")}
             className={`flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-medium transition ${
-              page === "planner" ? "bg-brand-600 text-white" : "text-slate-300 hover:bg-slate-800"
+              page === "planner" ? "bg-brand-600 text-white" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
             }`}
           >
             <Calendar className="h-4 w-4" />
@@ -494,19 +510,19 @@ export default function App() {
 
         {page === "home" && <>
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-400" />
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Escape" && setSearchQuery("")}
-            className="w-full rounded-2xl border border-slate-800 bg-slate-900/80 py-3 pl-11 pr-10 text-slate-100 placeholder:text-slate-500 focus:border-brand-600 focus:outline-none"
+            className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 py-3 pl-11 pr-10 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-brand-600 focus:outline-none"
             placeholder="Search inventory and recipes..."
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 hover:text-slate-200"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
             >
               <X className="h-4 w-4" />
             </button>
@@ -514,7 +530,7 @@ export default function App() {
         </div>
 
         {isLoading ? (
-          <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
+          <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-6">
             Loading your kitchen dashboard...
           </section>
         ) : (
@@ -539,7 +555,7 @@ export default function App() {
             </section>
 
             <section className="grid gap-6 xl:grid-cols-[1.3fr_1fr]">
-              <article className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
+              <article className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <h2 className="text-xl font-semibold">Inventory by location</h2>
@@ -549,8 +565,8 @@ export default function App() {
                         onClick={() => setExpiryFilter(null)}
                         className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition ${
                           expiryFilter === "expiring"
-                            ? "bg-amber-500/20 text-amber-200 hover:bg-amber-500/30"
-                            : "bg-rose-500/20 text-rose-200 hover:bg-rose-500/30"
+                            ? "bg-amber-500/20 text-amber-600 dark:text-amber-200 hover:bg-amber-500/30"
+                            : "bg-rose-500/20 text-rose-600 dark:text-rose-200 hover:bg-rose-500/30"
                         }`}
                       >
                         {expiryFilter === "expiring" ? "Expiring soon" : "Already expired"}
@@ -568,7 +584,7 @@ export default function App() {
                           className={`rounded-lg px-3 py-1 text-sm transition ${
                             activeLocation === name
                               ? "bg-brand-600 text-white"
-                              : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                              : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                           }`}
                         >
                           {name}
@@ -580,24 +596,24 @@ export default function App() {
 
                 <div className="mt-4 space-y-3">
                   {filteredInventory.length === 0 ? (
-                    <p className="rounded-lg bg-slate-800/70 p-4 text-slate-300">No items in this location yet.</p>
+                    <p className="rounded-lg bg-slate-50 dark:bg-slate-800/70 p-4 text-slate-600 dark:text-slate-300">No items in this location yet.</p>
                   ) : (
                     paginatedInventory.map((item) => (
-                      <div key={item.id} className="rounded-xl bg-slate-800/70 p-4">
+                      <div key={item.id} className="rounded-xl bg-slate-50 dark:bg-slate-800/70 p-4">
                         <div className="flex items-center justify-between gap-3">
                           <div>
-                            <p className="font-medium text-white">{item.name}</p>
-                            <p className="text-sm text-slate-300">
+                            <p className="font-medium text-slate-900 dark:text-white">{item.name}</p>
+                            <p className="text-sm text-slate-600 dark:text-slate-300">
                               {item.quantity} {item.unit} · {item.category} · {item.location}
                             </p>
                           </div>
                           <span
                             className={`rounded-full px-3 py-1 text-xs font-medium ${
                               item.expired
-                                ? "bg-rose-500/20 text-rose-200"
+                                ? "bg-rose-500/20 text-rose-600 dark:text-rose-200"
                                 : isExpiring(item)
-                                  ? "bg-amber-500/20 text-amber-200"
-                                  : "bg-emerald-500/20 text-emerald-200"
+                                  ? "bg-amber-500/20 text-amber-600 dark:text-amber-200"
+                                  : "bg-emerald-500/20 text-emerald-700 dark:text-emerald-200"
                             }`}
                           >
                             {item.expired ? "Expired" : isExpiring(item) ? "Expiring" : "Fresh"}
@@ -607,7 +623,7 @@ export default function App() {
                           <button
                             type="button"
                             onClick={() => startEditingItem(item)}
-                            className="inline-flex items-center gap-1 rounded-md bg-slate-700 px-2 py-1 text-xs text-slate-200 hover:bg-slate-600"
+                            className="inline-flex items-center gap-1 rounded-md bg-slate-200 dark:bg-slate-700 px-2 py-1 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600"
                           >
                             <Pencil className="h-3 w-3" />
                             Edit
@@ -615,7 +631,7 @@ export default function App() {
                           <button
                             type="button"
                             onClick={() => deleteItemMutation.mutate(item.id)}
-                            className="inline-flex items-center gap-1 rounded-md bg-rose-500/20 px-2 py-1 text-xs text-rose-200 hover:bg-rose-500/30"
+                            className="inline-flex items-center gap-1 rounded-md bg-rose-500/20 px-2 py-1 text-xs text-rose-600 dark:text-rose-200 hover:bg-rose-500/30"
                           >
                             <Trash2 className="h-3 w-3" />
                             Delete
@@ -627,13 +643,13 @@ export default function App() {
                 </div>
 
                 {filteredInventory.length > 0 && (
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-700 pt-4 text-sm text-slate-300">
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 dark:border-slate-700 pt-4 text-sm text-slate-600 dark:text-slate-300">
                     <div className="flex items-center gap-2">
                       <span>Items per page</span>
                       <select
                         value={pageSize}
                         onChange={(event) => setPageSize(Number(event.target.value))}
-                        className="rounded-md border border-slate-600 bg-slate-800 px-2 py-1 text-slate-200"
+                        className="rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-slate-800 dark:text-slate-200"
                       >
                         {pageSizeOptions.map((size) => (
                           <option key={size} value={size}>
@@ -648,7 +664,7 @@ export default function App() {
                         type="button"
                         onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
                         disabled={currentPage === 1}
-                        className="rounded-md border border-slate-600 px-2 py-1 text-slate-200 disabled:opacity-40"
+                        className="rounded-md border border-slate-300 dark:border-slate-600 px-2 py-1 text-slate-700 dark:text-slate-200 disabled:opacity-40"
                       >
                         Previous
                       </button>
@@ -659,7 +675,7 @@ export default function App() {
                         type="button"
                         onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
                         disabled={currentPage === totalPages}
-                        className="rounded-md border border-slate-600 px-2 py-1 text-slate-200 disabled:opacity-40"
+                        className="rounded-md border border-slate-300 dark:border-slate-600 px-2 py-1 text-slate-700 dark:text-slate-200 disabled:opacity-40"
                       >
                         Next
                       </button>
@@ -669,7 +685,7 @@ export default function App() {
               </article>
 
               <article className="space-y-6">
-                <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
+                <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-6">
                   <h2 className="flex items-center gap-2 text-xl font-semibold">
                     <Refrigerator className="h-5 w-5" />
                     {editingItemId !== null ? "Edit inventory item" : "Add inventory item"}
@@ -679,7 +695,7 @@ export default function App() {
                       required
                       value={formState.name}
                       onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))}
-                      className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2"
+                      className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                       placeholder="Item name"
                     />
                     <div className="grid grid-cols-2 gap-3">
@@ -687,13 +703,13 @@ export default function App() {
                         required
                         value={formState.category}
                         onChange={(event) => setFormState((prev) => ({ ...prev, category: event.target.value }))}
-                        className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2"
+                        className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                         placeholder="Category"
                       />
                       <select
                         value={formState.location}
                         onChange={(event) => setFormState((prev) => ({ ...prev, location: event.target.value }))}
-                        className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2"
+                        className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100"
                       >
                         {(locationsQuery.data ?? []).map((location) => (
                           <option key={location.id} value={location.name}>
@@ -712,14 +728,14 @@ export default function App() {
                         onChange={(event) =>
                           setFormState((prev) => ({ ...prev, quantity: Number(event.target.value) }))
                         }
-                        className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2"
+                        className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                         placeholder="Quantity"
                       />
                       <input
                         required
                         value={formState.unit}
                         onChange={(event) => setFormState((prev) => ({ ...prev, unit: event.target.value }))}
-                        className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2"
+                        className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                         placeholder="Unit"
                       />
                     </div>
@@ -727,12 +743,12 @@ export default function App() {
                       type="date"
                       value={formState.expiryDate}
                       onChange={(event) => setFormState((prev) => ({ ...prev, expiryDate: event.target.value }))}
-                      className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2"
+                      className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100"
                     />
                     <textarea
                       value={formState.notes}
                       onChange={(event) => setFormState((prev) => ({ ...prev, notes: event.target.value }))}
-                      className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2"
+                      className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                       placeholder="Notes (optional)"
                     />
                     <button
@@ -752,29 +768,29 @@ export default function App() {
                       <button
                         type="button"
                         onClick={cancelEditing}
-                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-600 px-4 py-2 text-slate-200 hover:bg-slate-800"
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
                       >
                         <Undo2 className="h-4 w-4" />
                         Cancel edit
                       </button>
                     )}
                     {addItemMutation.isError && (
-                      <p className="text-sm text-rose-300">Could not add item. Check backend availability.</p>
+                      <p className="text-sm text-rose-600 dark:text-rose-300">Could not add item. Check backend availability.</p>
                     )}
                     {updateItemMutation.isError && (
-                      <p className="text-sm text-rose-300">Could not update item. Try again.</p>
+                      <p className="text-sm text-rose-600 dark:text-rose-300">Could not update item. Try again.</p>
                     )}
                     {deleteItemMutation.isError && (
-                      <p className="text-sm text-rose-300">Could not delete item. Try again.</p>
+                      <p className="text-sm text-rose-600 dark:text-rose-300">Could not delete item. Try again.</p>
                     )}
                   </form>
                 </div>
 
-                <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
+                <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-6">
                   <h2 className="text-xl font-semibold">Stock distribution</h2>
                   <div className="mt-4 h-64">
                     {locationDistribution.length === 0 ? (
-                      <p className="text-slate-300">Add a few items to see the chart.</p>
+                      <p className="text-slate-600 dark:text-slate-300">Add a few items to see the chart.</p>
                     ) : (
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
@@ -792,7 +808,7 @@ export default function App() {
               </article>
             </section>
 
-            <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
+            <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-6">
               <h2 className="text-xl font-semibold">Recipe recommendations</h2>
               <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {recommendations.map((recommendation) => (
@@ -808,30 +824,30 @@ export default function App() {
                     }}
                     role="button"
                     tabIndex={0}
-                    className="cursor-pointer rounded-xl border border-slate-700 bg-slate-800/70 p-4"
+                    className="cursor-pointer rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/70 p-4"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold text-white">{recommendation.recipe.name}</p>
-                      <span className="rounded-full bg-brand-600/25 px-2 py-1 text-xs text-brand-100">
+                      <p className="font-semibold text-slate-900 dark:text-white">{recommendation.recipe.name}</p>
+                      <span className="rounded-full bg-brand-100 dark:bg-brand-600/25 px-2 py-1 text-xs text-brand-700 dark:text-brand-100">
                         {recommendationLabel(recommendation.matchPercentage)}
                       </span>
                     </div>
-                    <p className="mt-2 text-sm text-slate-300">
+                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                       Match: {recommendation.matchPercentage}% ({recommendation.matchedIngredients}/
                       {recommendation.totalIngredients})
                     </p>
                     {recommendation.expiringIngredientsUsed.length > 0 && (
-                      <p className="mt-2 text-xs text-amber-200">
+                      <p className="mt-2 text-xs text-amber-600 dark:text-amber-200">
                         Use soon: {recommendation.expiringIngredientsUsed.join(", ")}
                       </p>
                     )}
                     {recommendation.insufficientIngredients?.length > 0 && (
-                      <p className="mt-2 text-xs text-amber-300">
+                      <p className="mt-2 text-xs text-amber-600 dark:text-amber-300">
                         Not enough: {recommendation.insufficientIngredients.join(", ")}
                       </p>
                     )}
                     {recommendation.missingIngredients.length > 0 && (
-                      <p className="mt-2 text-xs text-slate-400">
+                      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                         Missing: {recommendation.missingIngredients.join(", ")}
                       </p>
                     )}
@@ -841,7 +857,7 @@ export default function App() {
             </section>
 
             <section className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
-              <article className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
+              <article className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-6">
                 <h2 className="text-xl font-semibold">
                   {editingRecipeId !== null ? "Edit recipe" : "Add recipe"}
                 </h2>
@@ -850,20 +866,20 @@ export default function App() {
                     required
                     value={recipeForm.name}
                     onChange={(event) => setRecipeForm((prev) => ({ ...prev, name: event.target.value }))}
-                    className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2"
+                    className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     placeholder="Recipe name"
                   />
                   <div className="grid grid-cols-2 gap-3">
                     <input
                       value={recipeForm.cuisine}
                       onChange={(event) => setRecipeForm((prev) => ({ ...prev, cuisine: event.target.value }))}
-                      className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2"
+                      className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                       placeholder="Cuisine"
                     />
                     <select
                       value={recipeForm.difficulty}
                       onChange={(event) => setRecipeForm((prev) => ({ ...prev, difficulty: event.target.value }))}
-                      className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2"
+                      className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100"
                     >
                       <option value="easy">easy</option>
                       <option value="medium">medium</option>
@@ -873,14 +889,14 @@ export default function App() {
                   <textarea
                     value={recipeForm.ingredients}
                     onChange={(event) => setRecipeForm((prev) => ({ ...prev, ingredients: event.target.value }))}
-                    className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2"
+                    className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     placeholder={"One ingredient per line:\n400 grams pasta\n3 cloves garlic\n100 ml olive oil"}
                     rows={5}
                   />
                   <textarea
                     value={recipeForm.instructions}
                     onChange={(event) => setRecipeForm((prev) => ({ ...prev, instructions: event.target.value }))}
-                    className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2"
+                    className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     placeholder="Instructions"
                     rows={3}
                   />
@@ -897,26 +913,26 @@ export default function App() {
                     <button
                       type="button"
                       onClick={cancelEditingRecipe}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-600 px-4 py-2 text-slate-200 hover:bg-slate-800"
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
                     >
                       <Undo2 className="h-4 w-4" />
                       Cancel edit
                     </button>
                   )}
                   {addRecipeMutation.isError && (
-                    <p className="text-sm text-rose-300">Could not add recipe. Please check your input.</p>
+                    <p className="text-sm text-rose-600 dark:text-rose-300">Could not add recipe. Please check your input.</p>
                   )}
                   {updateRecipeMutation.isError && (
-                    <p className="text-sm text-rose-300">Could not update recipe. Try again.</p>
+                    <p className="text-sm text-rose-600 dark:text-rose-300">Could not update recipe. Try again.</p>
                   )}
                 </form>
               </article>
 
-              <article className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
+              <article className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-6">
                 <h2 className="text-xl font-semibold">Recipe library</h2>
                 <div className="mt-4 space-y-3">
                   {filteredRecipes.length === 0 ? (
-                    <p className="rounded-lg bg-slate-800/70 p-4 text-slate-300">
+                    <p className="rounded-lg bg-slate-50 dark:bg-slate-800/70 p-4 text-slate-600 dark:text-slate-300">
                       {searchQuery ? `No recipes matching "${searchQuery}".` : "No recipes yet. Add your first one."}
                     </p>
                   ) : (
@@ -927,12 +943,12 @@ export default function App() {
                         role="button"
                         tabIndex={0}
                         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedRecipe(recipe); setCookResult(null); } }}
-                        className="cursor-pointer rounded-xl bg-slate-800/70 p-4 hover:bg-slate-700/70 transition"
+                        className="cursor-pointer rounded-xl bg-slate-50 dark:bg-slate-800/70 p-4 hover:bg-slate-100 dark:hover:bg-slate-700/70 transition"
                       >
                         <div className="flex items-center justify-between gap-3">
                           <div>
-                            <p className="font-medium text-white">{recipe.name}</p>
-                            <p className="text-sm text-slate-300">
+                            <p className="font-medium text-slate-900 dark:text-white">{recipe.name}</p>
+                            <p className="text-sm text-slate-600 dark:text-slate-300">
                               {recipe.cuisine || "Unknown cuisine"} · {recipe.difficulty || "unknown"}
                             </p>
                           </div>
@@ -940,7 +956,7 @@ export default function App() {
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); startEditingRecipe(recipe); }}
-                              className="inline-flex items-center gap-1 rounded-md bg-slate-700 px-2 py-1 text-xs text-slate-200 hover:bg-slate-600"
+                              className="inline-flex items-center gap-1 rounded-md bg-slate-200 dark:bg-slate-700 px-2 py-1 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600"
                             >
                               <Pencil className="h-3 w-3" />
                               Edit
@@ -948,7 +964,7 @@ export default function App() {
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); deleteRecipeMutation.mutate(recipe.id); }}
-                              className="inline-flex items-center gap-1 rounded-md bg-rose-500/20 px-2 py-1 text-xs text-rose-200 hover:bg-rose-500/30"
+                              className="inline-flex items-center gap-1 rounded-md bg-rose-500/20 px-2 py-1 text-xs text-rose-600 dark:text-rose-200 hover:bg-rose-500/30"
                             >
                               <Trash2 className="h-3 w-3" />
                               Delete
@@ -960,7 +976,7 @@ export default function App() {
                   )}
                 </div>
                 {deleteRecipeMutation.isError && (
-                  <p className="mt-3 text-sm text-rose-300">Could not delete recipe. Try again.</p>
+                  <p className="mt-3 text-sm text-rose-600 dark:text-rose-300">Could not delete recipe. Try again.</p>
                 )}
               </article>
             </section>
@@ -978,53 +994,53 @@ export default function App() {
           const checkingAvailability = availabilityQuery.isLoading;
 
           return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4">
-            <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-6">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-slate-950/80 p-4">
+            <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h3 className="text-2xl font-semibold text-white">{selectedRecipe.name}</h3>
-                  <p className="mt-1 text-sm text-slate-300">
+                  <h3 className="text-2xl font-semibold text-slate-900 dark:text-white">{selectedRecipe.name}</h3>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                     {selectedRecipe.cuisine || "Unknown cuisine"} · {selectedRecipe.difficulty || "unknown"}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => { setSelectedRecipe(null); setCookResult(null); }}
-                  className="rounded-md border border-slate-600 px-3 py-1 text-sm text-slate-200 hover:bg-slate-800"
+                  className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-1 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
                 >
                   Close
                 </button>
               </div>
 
               <div className="mt-4 flex items-center gap-3">
-                <span className="text-sm text-slate-300">Servings:</span>
+                <span className="text-sm text-slate-600 dark:text-slate-300">Servings:</span>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setSelectedServings((s) => Math.max(1, s - 1))}
                     disabled={selectedServings <= 1}
-                    className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-600 text-slate-200 hover:bg-slate-800 disabled:opacity-30"
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30"
                   >
                     −
                   </button>
-                  <span className="min-w-[2rem] text-center font-semibold text-white">{selectedServings}</span>
+                  <span className="min-w-[2rem] text-center font-semibold text-slate-900 dark:text-white">{selectedServings}</span>
                   <button
                     type="button"
                     onClick={() => setSelectedServings((s) => s + 1)}
-                    className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-600 text-slate-200 hover:bg-slate-800"
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
                   >
                     +
                   </button>
                 </div>
                 {selectedServings !== baseServings && (
-                  <span className="text-xs text-slate-500">(recipe is for {baseServings})</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-500">(recipe is for {baseServings})</span>
                 )}
               </div>
 
               <div className="mt-5 grid gap-5 md:grid-cols-2">
                 <div>
-                  <h4 className="text-sm font-semibold uppercase tracking-wide text-brand-100">Ingredients</h4>
-                  <ul className="mt-2 space-y-1 text-sm text-slate-200">
+                  <h4 className="text-sm font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-100">Ingredients</h4>
+                  <ul className="mt-2 space-y-1 text-sm text-slate-700 dark:text-slate-200">
                     {(selectedRecipe.ingredients ?? []).map((ingredient, index) => {
                       const scaled = ingredient.quantity * scale;
                       const display = Number.isInteger(scaled) ? scaled : parseFloat(scaled.toFixed(1));
@@ -1037,8 +1053,8 @@ export default function App() {
                   </ul>
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold uppercase tracking-wide text-brand-100">Step-by-step</h4>
-                  <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm text-slate-200">
+                  <h4 className="text-sm font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-100">Step-by-step</h4>
+                  <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm text-slate-700 dark:text-slate-200">
                     {parseInstructionSteps(selectedRecipe.instructions).map((step, index) => (
                       <li key={`${index}-${step}`}>{step}</li>
                     ))}
@@ -1046,21 +1062,21 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="mt-6 border-t border-slate-700 pt-5">
+              <div className="mt-6 border-t border-slate-200 dark:border-slate-700 pt-5">
                 {cookResult ? (
                   <div className="space-y-3 text-sm">
                     {cookResult.consumed.length > 0 && (
                       <div>
-                        <p className="font-medium text-emerald-300">Inventory updated:</p>
-                        <ul className="mt-1 space-y-1 text-slate-300">
+                        <p className="font-medium text-emerald-600 dark:text-emerald-300">Inventory updated:</p>
+                        <ul className="mt-1 space-y-1 text-slate-600 dark:text-slate-300">
                           {cookResult.consumed.map((line) => <li key={line}>· {line}</li>)}
                         </ul>
                       </div>
                     )}
                     {cookResult.unmatched.length > 0 && (
                       <div>
-                        <p className="font-medium text-amber-300">Not found in inventory:</p>
-                        <ul className="mt-1 space-y-1 text-slate-300">
+                        <p className="font-medium text-amber-600 dark:text-amber-300">Not found in inventory:</p>
+                        <ul className="mt-1 space-y-1 text-slate-600 dark:text-slate-300">
                           {cookResult.unmatched.map((line) => <li key={line}>· {line}</li>)}
                         </ul>
                       </div>
@@ -1080,17 +1096,17 @@ export default function App() {
                     {availability && !canCook && (
                       <div className="space-y-1 text-sm">
                         {availability.insufficientIngredients.map((line) => (
-                          <p key={line} className="text-amber-300">· Not enough: {line}</p>
+                          <p key={line} className="text-amber-600 dark:text-amber-300">· Not enough: {line}</p>
                         ))}
                         {availability.missingIngredients.map((line) => (
-                          <p key={line} className="text-rose-300">· Missing: {line}</p>
+                          <p key={line} className="text-rose-600 dark:text-rose-300">· Missing: {line}</p>
                         ))}
                       </div>
                     )}
                   </div>
                 )}
                 {cookRecipeMutation.isError && (
-                  <p className="mt-2 text-sm text-rose-300">Could not update inventory. Try again.</p>
+                  <p className="mt-2 text-sm text-rose-600 dark:text-rose-300">Could not update inventory. Try again.</p>
                 )}
               </div>
             </div>
@@ -1113,7 +1129,6 @@ export default function App() {
 }
 
 function parseIngredientLine(line: string): RecipeIngredient {
-  // Matches: "{qty} {unit} [of|van] {name}"  e.g. "100 ml of water" or "3 cloves garlic"
   const match = line.match(/^(\d+(?:[.,]\d+)?)\s+(\S+)(?:\s+(?:of|van))?\s+(.+)$/i);
   if (match) {
     const [, qtyStr, unit, name] = match;
@@ -1168,16 +1183,16 @@ function LoginPage({
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900/80 p-8 shadow-glow">
-        <p className="text-sm uppercase tracking-[0.2em] text-brand-100">ONS Inventory</p>
-        <h1 className="mt-2 text-2xl font-semibold text-white">Sign in</h1>
+      <div className="w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/80 p-8 shadow-glow">
+        <p className="text-sm uppercase tracking-[0.2em] text-brand-600 dark:text-brand-100">ONS Inventory</p>
+        <h1 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">Sign in</h1>
         <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
           <input
             required
             autoFocus
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder:text-slate-500"
+            className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
             placeholder="Username"
           />
           <input
@@ -1185,10 +1200,10 @@ function LoginPage({
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder:text-slate-500"
+            className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
             placeholder="Password"
           />
-          {error && <p className="text-sm text-rose-300">Incorrect username or password.</p>}
+          {error && <p className="text-sm text-rose-600 dark:text-rose-300">Incorrect username or password.</p>}
           <button
             type="submit"
             disabled={isPending}
@@ -1230,12 +1245,12 @@ function ChangePasswordModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 p-6">
-        <h3 className="text-lg font-semibold text-white">Change password</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-slate-950/80 p-4">
+      <div className="w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6">
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Change password</h3>
         {isSuccess ? (
           <div className="mt-4 space-y-4">
-            <p className="text-sm text-emerald-300">Password changed successfully.</p>
+            <p className="text-sm text-emerald-600 dark:text-emerald-300">Password changed successfully.</p>
             <button
               type="button"
               onClick={onClose}
@@ -1252,7 +1267,7 @@ function ChangePasswordModal({
               type="password"
               value={current}
               onChange={(e) => setCurrent(e.target.value)}
-              className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder:text-slate-500"
+              className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
               placeholder="Current password"
             />
             <input
@@ -1260,7 +1275,7 @@ function ChangePasswordModal({
               type="password"
               value={next}
               onChange={(e) => setNext(e.target.value)}
-              className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder:text-slate-500"
+              className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
               placeholder="New password"
             />
             <input
@@ -1268,16 +1283,16 @@ function ChangePasswordModal({
               type="password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              className={`rounded-lg border px-3 py-2 text-slate-100 placeholder:text-slate-500 ${mismatch ? "border-rose-500 bg-rose-950/30" : "border-slate-700 bg-slate-800"}`}
+              className={`rounded-lg border px-3 py-2 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 ${mismatch ? "border-rose-500 bg-rose-50 dark:bg-rose-950/30" : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"}`}
               placeholder="Confirm new password"
             />
-            {mismatch && <p className="text-sm text-rose-300">Passwords do not match.</p>}
-            {isError && <p className="text-sm text-rose-300">Current password is incorrect.</p>}
+            {mismatch && <p className="text-sm text-rose-600 dark:text-rose-300">Passwords do not match.</p>}
+            {isError && <p className="text-sm text-rose-600 dark:text-rose-300">Current password is incorrect.</p>}
             <div className="flex gap-3">
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 rounded-lg border border-slate-600 px-4 py-2 text-slate-200 hover:bg-slate-800"
+                className="flex-1 rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 Cancel
               </button>
@@ -1311,17 +1326,17 @@ function MetricCard({
 }) {
   return (
     <div
-      className={`rounded-2xl border bg-slate-900/80 p-5 transition ${
-        onClick ? "cursor-pointer hover:bg-slate-800/80" : ""
-      } ${active ? "border-brand-500 ring-1 ring-brand-500" : "border-slate-800"}`}
+      className={`rounded-2xl border bg-white dark:bg-slate-900/80 p-5 transition ${
+        onClick ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/80" : ""
+      } ${active ? "border-brand-500 ring-1 ring-brand-500" : "border-slate-200 dark:border-slate-800"}`}
       onClick={onClick}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
     >
-      <div className="flex items-center gap-2 text-brand-100">{icon}</div>
-      <p className="mt-3 text-sm text-slate-300">{label}</p>
-      <p className="mt-1 text-3xl font-semibold text-white">{value}</p>
+      <div className="flex items-center gap-2 text-brand-600 dark:text-brand-100">{icon}</div>
+      <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">{label}</p>
+      <p className="mt-1 text-3xl font-semibold text-slate-900 dark:text-white">{value}</p>
     </div>
   );
 }
