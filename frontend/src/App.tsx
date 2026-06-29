@@ -107,6 +107,7 @@ export default function App() {
   const [expiryFilter, setExpiryFilter] = useState<"expiring" | "expired" | null>(null);
   const [page, setPage] = useState<"home" | "planner">("home");
   const [dark, setDark] = useState<boolean>(() => localStorage.getItem("theme") !== "light");
+  const [skippedIngredients, setSkippedIngredients] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -251,11 +252,13 @@ export default function App() {
     if (selectedRecipe) {
       setSelectedServings(selectedRecipe.servings ?? 1);
       setCookResult(null);
+      setSkippedIngredients(new Set());
     }
   }, [selectedRecipe?.id]);
 
   const cookRecipeMutation = useMutation({
-    mutationFn: ({ id, servings }: { id: number; servings: number }) => cookRecipe(id, servings),
+    mutationFn: ({ id, servings, skippedIngredients }: { id: number; servings: number; skippedIngredients: string[] }) =>
+      cookRecipe(id, servings, skippedIngredients),
     onSuccess: async (result) => {
       setCookResult(result);
       await queryClient.invalidateQueries({ queryKey: ["inventory"] });
@@ -990,8 +993,17 @@ export default function App() {
           const baseServings = selectedRecipe.servings ?? 1;
           const scale = selectedServings / baseServings;
           const availability = availabilityQuery.data;
-          const canCook = availability?.canCook ?? false;
           const checkingAvailability = availabilityQuery.isLoading;
+
+          // Filter warnings for ingredients the user chose to skip this cook
+          const filteredInsufficient = (availability?.insufficientIngredients ?? []).filter(
+            (s) => !Array.from(skippedIngredients).some((skip) => s.toLowerCase().includes(skip.toLowerCase()))
+          );
+          const filteredMissing = (availability?.missingIngredients ?? []).filter(
+            (s) => !Array.from(skippedIngredients).some((skip) => s.toLowerCase().includes(skip.toLowerCase()))
+          );
+          const canCook = !checkingAvailability && availability != null
+            && filteredInsufficient.length === 0 && filteredMissing.length === 0;
 
           return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-slate-950/80 p-4">
@@ -1040,13 +1052,33 @@ export default function App() {
               <div className="mt-5 grid gap-5 md:grid-cols-2">
                 <div>
                   <h4 className="text-sm font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-100">Ingredients</h4>
-                  <ul className="mt-2 space-y-1 text-sm text-slate-700 dark:text-slate-200">
+                  <ul className="mt-2 space-y-1 text-sm">
                     {(selectedRecipe.ingredients ?? []).map((ingredient, index) => {
                       const scaled = ingredient.quantity * scale;
                       const display = Number.isInteger(scaled) ? scaled : parseFloat(scaled.toFixed(1));
+                      const skipped = skippedIngredients.has(ingredient.ingredientName);
+                      const toggle = () => setSkippedIngredients((prev) => {
+                        const next = new Set(prev);
+                        skipped ? next.delete(ingredient.ingredientName) : next.add(ingredient.ingredientName);
+                        return next;
+                      });
                       return (
-                        <li key={`${ingredient.ingredientName}-${index}`}>
-                          {display} {ingredient.unit} {ingredient.ingredientName}
+                        <li key={`${ingredient.ingredientName}-${index}`} className="group flex items-center gap-2">
+                          <span className={skipped ? "line-through text-slate-400 dark:text-slate-500" : "text-slate-700 dark:text-slate-200"}>
+                            {display} {ingredient.unit} {ingredient.ingredientName}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={toggle}
+                            title={skipped ? "Add back" : "Skip for this cook"}
+                            className={`shrink-0 rounded p-0.5 transition ${
+                              skipped
+                                ? "text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200"
+                                : "opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400"
+                            }`}
+                          >
+                            {skipped ? <Undo2 className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                          </button>
                         </li>
                       );
                     })}
@@ -1087,20 +1119,23 @@ export default function App() {
                     <button
                       type="button"
                       disabled={cookRecipeMutation.isPending || checkingAvailability || !canCook}
-                      onClick={() => cookRecipeMutation.mutate({ id: selectedRecipe.id, servings: selectedServings })}
+                      onClick={() => cookRecipeMutation.mutate({ id: selectedRecipe.id, servings: selectedServings, skippedIngredients: Array.from(skippedIngredients) })}
                       className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 font-medium text-white transition hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <UtensilsCrossed className="h-4 w-4" />
                       {cookRecipeMutation.isPending ? "Updating inventory..." : "Cooked this!"}
                     </button>
-                    {availability && !canCook && (
+                    {(filteredInsufficient.length > 0 || filteredMissing.length > 0) && (
                       <div className="space-y-1 text-sm">
-                        {availability.insufficientIngredients.map((line) => (
+                        {filteredInsufficient.map((line) => (
                           <p key={line} className="text-amber-600 dark:text-amber-300">· Not enough: {line}</p>
                         ))}
-                        {availability.missingIngredients.map((line) => (
+                        {filteredMissing.map((line) => (
                           <p key={line} className="text-rose-600 dark:text-rose-300">· Missing: {line}</p>
                         ))}
+                        <p className="text-slate-500 dark:text-slate-400 text-xs pt-1">
+                          Click × next to an ingredient above to skip it for this cook.
+                        </p>
                       </div>
                     )}
                   </div>

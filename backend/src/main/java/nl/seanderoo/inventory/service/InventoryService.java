@@ -247,7 +247,7 @@ public class InventoryService {
                 .build();
     }
 
-    public CookResultDTO cookRecipe(Long recipeId, int requestedServings) {
+    public CookResultDTO cookRecipe(Long recipeId, int requestedServings, List<String> skippedIngredients) {
         var recipe = recipeRepository.findById(recipeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recipe not found: " + recipeId));
 
@@ -257,6 +257,7 @@ public class InventoryService {
 
         for (RecipeIngredient ingredient : recipe.getIngredients()) {
             if (ALWAYS_AVAILABLE.contains(ingredient.getIngredientName().toLowerCase().trim())) continue;
+            if (skippedIngredients.stream().anyMatch(s -> s.equalsIgnoreCase(ingredient.getIngredientName()))) continue;
             double scaledQuantity = ingredient.getQuantity() * scale;
             List<InventoryItem> candidates = findCandidates(ingredient.getIngredientName());
 

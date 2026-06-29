@@ -141,9 +141,10 @@ export function checkRecipeAvailability(id: number, servings: number) {
   return request<RecipeAvailability>(`/api/recipes/${id}/availability?servings=${servings}`);
 }
 
-export function cookRecipe(id: number, servings: number) {
-  return request<CookResult>(`/api/recipes/${id}/cook?servings=${servings}`, {
-    method: "POST"
+export function cookRecipe(id: number, servings: number, skippedIngredients: string[] = []) {
+  return request<CookResult>(`/api/recipes/${id}/cook`, {
+    method: "POST",
+    body: JSON.stringify({ servings, skippedIngredients })
   });
 }
 
