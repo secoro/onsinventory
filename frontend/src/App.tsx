@@ -44,7 +44,6 @@ import {
   inviteToHousehold,
   login,
   register,
-  renameHousehold,
   resetPassword,
   storeToken,
   updateInventoryItem,
@@ -119,8 +118,6 @@ export default function App() {
   const [skippedIngredients, setSkippedIngredients] = useState<Set<string>>(new Set());
   const [showInviteHousehold, setShowInviteHousehold] = useState(false);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
-  const [editingHouseholdName, setEditingHouseholdName] = useState(false);
-  const [householdNameDraft, setHouseholdNameDraft] = useState("");
 
   const [urlAuthState] = useState(() => {
     const path = window.location.pathname;
@@ -231,14 +228,6 @@ export default function App() {
     onSuccess: () => {
       setShowDeleteAccount(false);
       handleLogout();
-    }
-  });
-
-  const renameHouseholdMutation = useMutation({
-    mutationFn: (name: string) => renameHousehold(name),
-    onSuccess: (data) => {
-      setAuthUser((prev) => (prev ? { ...prev, householdName: data.name } : prev));
-      setEditingHouseholdName(false);
     }
   });
 
@@ -569,52 +558,7 @@ export default function App() {
                 Track pantry, fridge, and freezer stock and get recipe ideas before ingredients expire.
               </p>
               {authUser.householdName && (
-                editingHouseholdName ? (
-                  <form
-                    className="mt-1 flex items-center gap-2"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      const trimmed = householdNameDraft.trim();
-                      if (trimmed) renameHouseholdMutation.mutate(trimmed);
-                    }}
-                  >
-                    <input
-                      autoFocus
-                      value={householdNameDraft}
-                      onChange={(e) => setHouseholdNameDraft(e.target.value)}
-                      className="rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1 text-sm text-slate-900 dark:text-slate-100"
-                    />
-                    <button
-                      type="submit"
-                      disabled={renameHouseholdMutation.isPending}
-                      className="text-xs font-medium text-brand-600 dark:text-brand-100 hover:underline disabled:opacity-50"
-                    >
-                      {renameHouseholdMutation.isPending ? "Saving..." : "Save"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditingHouseholdName(false)}
-                      className="text-xs text-slate-500 dark:text-slate-400 hover:underline"
-                    >
-                      Cancel
-                    </button>
-                  </form>
-                ) : (
-                  <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400">
-                    {authUser.householdName}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setHouseholdNameDraft(authUser.householdName ?? "");
-                        setEditingHouseholdName(true);
-                      }}
-                      title="Rename household"
-                      className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </button>
-                  </p>
-                )
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{authUser.householdName}</p>
               )}
             </div>
             <div className="flex flex-col items-end gap-3">

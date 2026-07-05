@@ -11,10 +11,13 @@ import nl.seanderoo.inventory.repository.HouseholdRepository;
 import nl.seanderoo.inventory.repository.InventoryItemRepository;
 import nl.seanderoo.inventory.repository.LocationRepository;
 import nl.seanderoo.inventory.repository.RecipeRepository;
+import nl.seanderoo.inventory.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -28,6 +31,7 @@ public class HouseholdService {
     private final LocationRepository locationRepository;
     private final InventoryItemRepository inventoryItemRepository;
     private final RecipeRepository recipeRepository;
+    private final UserRepository userRepository;
     private final EmailService emailService;
 
     public HouseholdService(HouseholdRepository householdRepository,
@@ -35,21 +39,48 @@ public class HouseholdService {
                              LocationRepository locationRepository,
                              InventoryItemRepository inventoryItemRepository,
                              RecipeRepository recipeRepository,
+                             UserRepository userRepository,
                              EmailService emailService) {
         this.householdRepository = householdRepository;
         this.householdInviteRepository = householdInviteRepository;
         this.locationRepository = locationRepository;
         this.inventoryItemRepository = inventoryItemRepository;
         this.recipeRepository = recipeRepository;
+        this.userRepository = userRepository;
         this.emailService = emailService;
     }
 
-    public Household createHouseholdWithDefaultLocations(String name) {
-        Household household = householdRepository.save(Household.builder().name(name).build());
+    public Household createHouseholdWithDefaultLocations(String ownerFirstName) {
+        Household household = householdRepository.save(Household.builder().name(nameFor(List.of(ownerFirstName))).build());
         locationRepository.save(Location.pantry(household));
         locationRepository.save(Location.fridge(household));
         locationRepository.save(Location.freezer(household));
         return household;
+    }
+
+    /**
+     * Recomputes the household's name from its current members' first names
+     * (e.g. "Sean & Natalia's Household", "Sean, Natalia & Ciaran's Household"),
+     * so it never goes stale as people join or leave. Call this after any
+     * membership change. A no-op if the household has no members left (it's
+     * about to be deleted in that case).
+     */
+    public void regenerateName(Household household) {
+        List<User> members = userRepository.findByHouseholdId(household.getId()).stream()
+                .sorted(Comparator.comparing(User::getId))
+                .toList();
+        if (members.isEmpty()) {
+            return;
+        }
+        household.setName(nameFor(members.stream().map(User::getFirstName).toList()));
+        householdRepository.save(household);
+    }
+
+    private String nameFor(List<String> firstNames) {
+        String joinedNames = firstNames.size() == 1
+                ? firstNames.get(0)
+                : String.join(", ", firstNames.subList(0, firstNames.size() - 1)) + " & " + firstNames.get(firstNames.size() - 1);
+        return joinedNames + "'s Household";
     }
 
     public HouseholdInvite invite(User inviter, String email) {
@@ -87,14 +118,6 @@ public class HouseholdService {
     public void markAccepted(HouseholdInvite invite) {
         invite.setAcceptedAt(LocalDateTime.now());
         householdInviteRepository.save(invite);
-    }
-
-    public Household renameHousehold(Household household, String newName) {
-        if (newName == null || newName.isBlank()) {
-            throw new BadRequestException("Household name is required");
-        }
-        household.setName(newName.trim());
-        return householdRepository.save(household);
     }
 
     /**

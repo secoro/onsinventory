@@ -4,7 +4,6 @@ import nl.seanderoo.inventory.dto.HouseholdDTO;
 import nl.seanderoo.inventory.dto.HouseholdInvitePreviewDTO;
 import nl.seanderoo.inventory.dto.HouseholdMemberDTO;
 import nl.seanderoo.inventory.dto.InviteRequestDTO;
-import nl.seanderoo.inventory.dto.RenameHouseholdRequestDTO;
 import nl.seanderoo.inventory.model.Household;
 import nl.seanderoo.inventory.model.HouseholdInvite;
 import nl.seanderoo.inventory.model.User;
@@ -32,14 +31,6 @@ public class HouseholdController {
     @GetMapping
     public ResponseEntity<HouseholdDTO> getCurrentHousehold(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(toDTO(user.getHousehold()));
-    }
-
-    @PutMapping
-    public ResponseEntity<HouseholdDTO> renameHousehold(
-            @AuthenticationPrincipal User user,
-            @RequestBody RenameHouseholdRequestDTO request) {
-        Household updated = householdService.renameHousehold(user.getHousehold(), request.getName());
-        return ResponseEntity.ok(toDTO(updated));
     }
 
     @PostMapping("/invite")

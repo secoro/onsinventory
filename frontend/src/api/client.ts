@@ -230,13 +230,6 @@ export function getHousehold() {
   return request<HouseholdResponse>("/api/household");
 }
 
-export function renameHousehold(name: string) {
-  return request<HouseholdResponse>("/api/household", {
-    method: "PUT",
-    body: JSON.stringify({ name })
-  });
-}
-
 export function inviteToHousehold(email: string) {
   return request<void>("/api/household/invite", {
     method: "POST",

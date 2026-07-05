@@ -104,6 +104,7 @@ public class UserService implements UserDetailsService {
 
         if (invite != null) {
             householdService.markAccepted(invite);
+            householdService.regenerateName(household);
         }
 
         return user;
@@ -138,7 +139,9 @@ public class UserService implements UserDetailsService {
         userRepository.delete(user);
 
         boolean householdStillHasMembers = !userRepository.findByHouseholdId(household.getId()).isEmpty();
-        if (!householdStillHasMembers) {
+        if (householdStillHasMembers) {
+            householdService.regenerateName(household);
+        } else {
             householdService.deleteHouseholdAndData(household);
         }
     }
