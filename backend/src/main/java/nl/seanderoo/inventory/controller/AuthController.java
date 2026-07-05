@@ -1,11 +1,15 @@
 package nl.seanderoo.inventory.controller;
 
 import nl.seanderoo.inventory.dto.ChangePasswordDTO;
+import nl.seanderoo.inventory.dto.ForgotPasswordRequestDTO;
 import nl.seanderoo.inventory.dto.LoginRequestDTO;
 import nl.seanderoo.inventory.dto.LoginResponseDTO;
+import nl.seanderoo.inventory.dto.RegisterRequestDTO;
+import nl.seanderoo.inventory.dto.ResetPasswordRequestDTO;
 import nl.seanderoo.inventory.model.User;
 import nl.seanderoo.inventory.service.JwtService;
 import nl.seanderoo.inventory.service.UserService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -46,20 +50,32 @@ public class AuthController {
         );
         User user = (User) userService.loadUserByUsername(request.getUsername());
         String token = jwtService.generateToken(user);
-        return ResponseEntity.ok(LoginResponseDTO.builder()
-                .token(token)
-                .username(user.getUsername())
-                .firstName(user.getFirstName())
-                .build());
+        return ResponseEntity.ok(toLoginResponse(user, token));
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<LoginResponseDTO> register(@RequestBody RegisterRequestDTO request) {
+        User user = userService.register(request);
+        String token = jwtService.generateToken(user);
+        return ResponseEntity.status(HttpStatus.CREATED).body(toLoginResponse(user, token));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Void> forgotPassword(@RequestBody ForgotPasswordRequestDTO request) {
+        userService.requestPasswordReset(request.getEmail());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(@RequestBody ResetPasswordRequestDTO request) {
+        userService.resetPassword(request.getToken(), request.getNewPassword());
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/me")
     public ResponseEntity<LoginResponseDTO> me(@AuthenticationPrincipal UserDetails userDetails) {
         User user = (User) userDetails;
-        return ResponseEntity.ok(LoginResponseDTO.builder()
-                .username(user.getUsername())
-                .firstName(user.getFirstName())
-                .build());
+        return ResponseEntity.ok(toLoginResponse(user, null));
     }
 
     @PostMapping("/change-password")
@@ -68,5 +84,16 @@ public class AuthController {
             @AuthenticationPrincipal UserDetails userDetails) {
         userService.changePassword(userDetails.getUsername(), request.getCurrentPassword(), request.getNewPassword());
         return ResponseEntity.noContent().build();
+    }
+
+    private LoginResponseDTO toLoginResponse(User user, String token) {
+        return LoginResponseDTO.builder()
+                .token(token)
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .householdName(user.getHousehold().getName())
+                .build();
     }
 }

@@ -1,6 +1,5 @@
 package nl.seanderoo.inventory.service;
 
-import nl.seanderoo.inventory.dto.RecipeDTO;
 import nl.seanderoo.inventory.dto.RecipeRecommendationDTO;
 import nl.seanderoo.inventory.exception.ResourceNotFoundException;
 import nl.seanderoo.inventory.model.InventoryItem;
@@ -13,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.*;
-import java.util.OptionalDouble;
 import java.util.stream.Collectors;
 
 @Service
@@ -23,18 +21,22 @@ public class RecipeRecommendationService {
     private final RecipeRepository recipeRepository;
     private final InventoryItemRepository inventoryItemRepository;
     private final RecipeService recipeService;
+    private final CurrentHouseholdProvider currentHouseholdProvider;
 
     public RecipeRecommendationService(RecipeRepository recipeRepository,
                                       InventoryItemRepository inventoryItemRepository,
-                                      RecipeService recipeService) {
+                                      RecipeService recipeService,
+                                      CurrentHouseholdProvider currentHouseholdProvider) {
         this.recipeRepository = recipeRepository;
         this.inventoryItemRepository = inventoryItemRepository;
         this.recipeService = recipeService;
+        this.currentHouseholdProvider = currentHouseholdProvider;
     }
 
     public List<RecipeRecommendationDTO> getRecommendations(Integer limit) {
-        List<InventoryItem> inventory = inventoryItemRepository.findAll();
-        List<Recipe> recipes = recipeRepository.findAll();
+        Long householdId = currentHouseholdProvider.getHouseholdId();
+        List<InventoryItem> inventory = inventoryItemRepository.findByHouseholdId(householdId);
+        List<Recipe> recipes = recipeRepository.findAllByHouseholdId(householdId);
 
         return recipes.stream()
                 .map(recipe -> calculateMatchScore(recipe, inventory))
@@ -50,8 +52,9 @@ public class RecipeRecommendationService {
     }
 
     public List<RecipeRecommendationDTO> getRecommendationsByCategory(String category, Integer limit) {
-        List<InventoryItem> inventory = inventoryItemRepository.findAll();
-        List<Recipe> recipes = recipeRepository.findByCuisine(category);
+        Long householdId = currentHouseholdProvider.getHouseholdId();
+        List<InventoryItem> inventory = inventoryItemRepository.findByHouseholdId(householdId);
+        List<Recipe> recipes = recipeRepository.findByCuisineAndHouseholdId(category, householdId);
 
         return recipes.stream()
                 .map(recipe -> calculateMatchScore(recipe, inventory))
@@ -62,9 +65,10 @@ public class RecipeRecommendationService {
     }
 
     public RecipeRecommendationDTO getRecommendationForRecipe(Long recipeId) {
-        Recipe recipe = recipeRepository.findById(recipeId)
+        Long householdId = currentHouseholdProvider.getHouseholdId();
+        Recipe recipe = recipeRepository.findByIdAndHouseholdId(recipeId, householdId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recipe not found: " + recipeId));
-        List<InventoryItem> inventory = inventoryItemRepository.findAll();
+        List<InventoryItem> inventory = inventoryItemRepository.findByHouseholdId(householdId);
         return calculateMatchScore(recipe, inventory);
     }
 
@@ -148,8 +152,9 @@ public class RecipeRecommendationService {
     }
 
     public List<RecipeRecommendationDTO> getRecipesUsingExpiringItems(Integer limit) {
+        Long householdId = currentHouseholdProvider.getHouseholdId();
         LocalDate soon = LocalDate.now().plusDays(3);
-        List<InventoryItem> expiringItems = inventoryItemRepository.findExpiringSoonItems(LocalDate.now(), soon);
+        List<InventoryItem> expiringItems = inventoryItemRepository.findExpiringSoonItems(householdId, LocalDate.now(), soon);
 
         if (expiringItems.isEmpty()) {
             return Collections.emptyList();
@@ -159,7 +164,7 @@ public class RecipeRecommendationService {
                 .map(item -> item.getName().toLowerCase())
                 .collect(Collectors.toSet());
 
-        List<Recipe> recipes = recipeRepository.findAll();
+        List<Recipe> recipes = recipeRepository.findAllByHouseholdId(householdId);
 
         return recipes.stream()
                 .map(recipe -> calculateMatchScoreForExpiringItems(recipe, expiringItemNames))

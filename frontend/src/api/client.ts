@@ -35,7 +35,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    const message = await response.text();
+    const text = await response.text();
+    let message = text;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed?.message) message = parsed.message;
+    } catch {
+      // response wasn't JSON - fall back to raw text
+    }
     throw new Error(message || `Request failed: ${response.status}`);
   }
 
@@ -148,10 +155,47 @@ export function cookRecipe(id: number, servings: number, skippedIngredients: str
   });
 }
 
+type AuthResponse = {
+  token: string;
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  householdName: string;
+};
+
 export function login(username: string, password: string) {
-  return request<{ token: string; username: string; firstName: string }>("/api/auth/login", {
+  return request<AuthResponse>("/api/auth/login", {
     method: "POST",
     body: JSON.stringify({ username, password })
+  });
+}
+
+export function register(payload: {
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  password: string;
+  inviteToken?: string;
+}) {
+  return request<AuthResponse>("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function forgotPassword(email: string) {
+  return request<void>("/api/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email })
+  });
+}
+
+export function resetPassword(token: string, newPassword: string) {
+  return request<void>("/api/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, newPassword })
   });
 }
 
@@ -160,7 +204,7 @@ export function getAuthConfig() {
 }
 
 export function getMe() {
-  return request<{ username: string; firstName: string }>("/api/auth/me");
+  return request<AuthResponse>("/api/auth/me");
 }
 
 export function changePassword(currentPassword: string, newPassword: string) {
@@ -168,4 +212,21 @@ export function changePassword(currentPassword: string, newPassword: string) {
     method: "POST",
     body: JSON.stringify({ currentPassword, newPassword })
   });
+}
+
+export function getHousehold() {
+  return request<{ name: string; members: { username: string; firstName: string; lastName: string }[] }>(
+    "/api/household"
+  );
+}
+
+export function inviteToHousehold(email: string) {
+  return request<void>("/api/household/invite", {
+    method: "POST",
+    body: JSON.stringify({ email })
+  });
+}
+
+export function getInvitePreview(token: string) {
+  return request<{ householdName: string; email: string }>(`/api/household/invite/${token}`);
 }

@@ -23,11 +23,21 @@ public class User implements UserDetails {
     @Column(unique = true, nullable = false)
     private String username;
 
+    @Column(unique = true, nullable = false)
+    private String email;
+
     @Column(nullable = false)
     private String firstName;
 
     @Column(nullable = false)
+    private String lastName;
+
+    @Column(nullable = false)
     private String password;
+
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "household_id")
+    private Household household;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

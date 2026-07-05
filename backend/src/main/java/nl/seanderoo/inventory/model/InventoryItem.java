@@ -30,6 +30,10 @@ public class InventoryItem {
     @JoinColumn(name = "location_id")
     private Location location;
 
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "household_id")
+    private Household household;
+
     @Column(nullable = false)
     private Double quantity;
 

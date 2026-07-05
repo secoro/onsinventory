@@ -8,6 +8,7 @@ import {
   Flame,
   KeyRound,
   LogOut,
+  Mail,
   Moon,
   Package,
   Pencil,
@@ -17,6 +18,7 @@ import {
   Sun,
   Trash2,
   Undo2,
+  UserPlus,
   UtensilsCrossed,
   X
 } from "lucide-react";
@@ -30,13 +32,18 @@ import {
   cookRecipe,
   deleteInventoryItem,
   deleteRecipe,
+  forgotPassword,
   getAuthConfig,
   getInventory,
+  getInvitePreview,
   getLocations,
   getMe,
   getRecommendations,
   getRecipes,
+  inviteToHousehold,
   login,
+  register,
+  resetPassword,
   storeToken,
   updateInventoryItem,
   updateRecipe
@@ -108,6 +115,27 @@ export default function App() {
   const [page, setPage] = useState<"home" | "planner">("home");
   const [dark, setDark] = useState<boolean>(() => localStorage.getItem("theme") !== "light");
   const [skippedIngredients, setSkippedIngredients] = useState<Set<string>>(new Set());
+  const [showInviteHousehold, setShowInviteHousehold] = useState(false);
+
+  const [urlAuthState] = useState(() => {
+    const path = window.location.pathname;
+    const params = new URLSearchParams(window.location.search);
+    if (path === "/reset-password" && params.get("token")) {
+      return { view: "reset-password" as const, resetToken: params.get("token")!, inviteToken: null as string | null };
+    }
+    if (path === "/join" && params.get("token")) {
+      return { view: "register" as const, resetToken: null as string | null, inviteToken: params.get("token")! };
+    }
+    return { view: "login" as const, resetToken: null as string | null, inviteToken: null as string | null };
+  });
+  const [authView, setAuthView] = useState<"login" | "register" | "forgot-password" | "reset-password">(
+    urlAuthState.view
+  );
+
+  const backToLogin = () => {
+    window.history.replaceState({}, "", "/");
+    setAuthView("login");
+  };
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -142,8 +170,36 @@ export default function App() {
     mutationFn: ({ username, password }: { username: string; password: string }) => login(username, password),
     onSuccess: (data) => {
       storeToken(data.token);
-      setAuthUser({ username: data.username, firstName: data.firstName, token: data.token });
+      setAuthUser({ ...data, token: data.token });
     }
+  });
+
+  const registerMutation = useMutation({
+    mutationFn: (payload: {
+      username: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+      password: string;
+      inviteToken?: string;
+    }) => register(payload),
+    onSuccess: (data) => {
+      storeToken(data.token);
+      setAuthUser({ ...data, token: data.token });
+      window.history.replaceState({}, "", "/");
+    }
+  });
+
+  const forgotPasswordMutation = useMutation({
+    mutationFn: (email: string) => forgotPassword(email)
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: ({ token, newPassword }: { token: string; newPassword: string }) => resetPassword(token, newPassword)
+  });
+
+  const inviteMutation = useMutation({
+    mutationFn: (email: string) => inviteToHousehold(email)
   });
 
   const changePasswordMutation = useMutation({
@@ -425,7 +481,48 @@ export default function App() {
   }
 
   if (!authUser) {
-    return <LoginPage onLogin={loginMutation.mutate} error={loginMutation.isError} isPending={loginMutation.isPending} />;
+    if (authView === "register") {
+      return (
+        <RegisterPage
+          inviteToken={urlAuthState.inviteToken}
+          onRegister={registerMutation.mutate}
+          error={registerMutation.isError ? registerMutation.error.message : null}
+          isPending={registerMutation.isPending}
+          onBackToLogin={backToLogin}
+        />
+      );
+    }
+    if (authView === "forgot-password") {
+      return (
+        <ForgotPasswordPage
+          onSubmit={forgotPasswordMutation.mutate}
+          isPending={forgotPasswordMutation.isPending}
+          isSuccess={forgotPasswordMutation.isSuccess}
+          onBackToLogin={backToLogin}
+        />
+      );
+    }
+    if (authView === "reset-password") {
+      return (
+        <ResetPasswordPage
+          token={urlAuthState.resetToken}
+          onSubmit={resetPasswordMutation.mutate}
+          error={resetPasswordMutation.isError ? resetPasswordMutation.error.message : null}
+          isPending={resetPasswordMutation.isPending}
+          isSuccess={resetPasswordMutation.isSuccess}
+          onBackToLogin={backToLogin}
+        />
+      );
+    }
+    return (
+      <LoginPage
+        onLogin={loginMutation.mutate}
+        error={loginMutation.isError}
+        isPending={loginMutation.isPending}
+        onShowRegister={() => setAuthView("register")}
+        onShowForgotPassword={() => setAuthView("forgot-password")}
+      />
+    );
   }
 
   return (
@@ -443,6 +540,9 @@ export default function App() {
               <p className="mt-2 text-slate-600 dark:text-slate-300">
                 Track pantry, fridge, and freezer stock and get recipe ideas before ingredients expire.
               </p>
+              {authUser.householdName && (
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{authUser.householdName}</p>
+              )}
             </div>
             <div className="flex flex-col items-end gap-3">
               <div className="flex items-center gap-2">
@@ -453,6 +553,14 @@ export default function App() {
                 >
                   {dark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
                   {dark ? "Light" : "Dark"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowInviteHousehold(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  Invite to household
                 </button>
                 <button
                   type="button"
@@ -1159,6 +1267,16 @@ export default function App() {
           isSuccess={changePasswordMutation.isSuccess}
         />
       )}
+
+      {showInviteHousehold && (
+        <InviteHouseholdModal
+          onClose={() => { setShowInviteHousehold(false); inviteMutation.reset(); }}
+          onSubmit={(email) => inviteMutation.mutate(email)}
+          isPending={inviteMutation.isPending}
+          error={inviteMutation.isError ? inviteMutation.error.message : null}
+          isSuccess={inviteMutation.isSuccess}
+        />
+      )}
     </div>
   );
 }
@@ -1199,14 +1317,33 @@ function parseInstructionSteps(instructions?: string): string[] {
   return sentences.length > 0 ? sentences : [instructions.trim()];
 }
 
+function AuthShell({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <div className="w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/80 p-8 shadow-glow">
+        <p className="text-sm uppercase tracking-[0.2em] text-brand-600 dark:text-brand-100">ONS Inventory</p>
+        <h1 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">{title}</h1>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const authInputClass =
+  "rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500";
+
 function LoginPage({
   onLogin,
   error,
-  isPending
+  isPending,
+  onShowRegister,
+  onShowForgotPassword
 }: {
   onLogin: (args: { username: string; password: string }) => void;
   error: boolean;
   isPending: boolean;
+  onShowRegister: () => void;
+  onShowForgotPassword: () => void;
 }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -1217,36 +1354,372 @@ function LoginPage({
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/80 p-8 shadow-glow">
-        <p className="text-sm uppercase tracking-[0.2em] text-brand-600 dark:text-brand-100">ONS Inventory</p>
-        <h1 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">Sign in</h1>
-        <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
+    <AuthShell title="Sign in">
+      <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
+        <input
+          required
+          autoFocus
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          className={authInputClass}
+          placeholder="Username"
+        />
+        <input
+          required
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className={authInputClass}
+          placeholder="Password"
+        />
+        {error && <p className="text-sm text-rose-600 dark:text-rose-300">Incorrect username or password.</p>}
+        <button
+          type="submit"
+          disabled={isPending}
+          className="rounded-lg bg-brand-600 px-4 py-2 font-medium text-white transition hover:bg-brand-500 disabled:opacity-50"
+        >
+          {isPending ? "Signing in..." : "Sign in"}
+        </button>
+      </form>
+      <div className="mt-4 flex items-center justify-between text-sm">
+        <button type="button" onClick={onShowForgotPassword} className="text-brand-600 dark:text-brand-100 hover:underline">
+          Forgot password?
+        </button>
+        <button type="button" onClick={onShowRegister} className="text-brand-600 dark:text-brand-100 hover:underline">
+          Create an account
+        </button>
+      </div>
+    </AuthShell>
+  );
+}
+
+function RegisterPage({
+  inviteToken,
+  onRegister,
+  error,
+  isPending,
+  onBackToLogin
+}: {
+  inviteToken: string | null;
+  onRegister: (payload: {
+    username: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    password: string;
+    inviteToken?: string;
+  }) => void;
+  error: string | null;
+  isPending: boolean;
+  onBackToLogin: () => void;
+}) {
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [invitePreview, setInvitePreview] = useState<{ householdName: string } | "invalid" | null>(null);
+  const mismatch = confirmPassword.length > 0 && password !== confirmPassword;
+
+  useEffect(() => {
+    if (!inviteToken) return;
+    getInvitePreview(inviteToken)
+      .then((preview) => setInvitePreview({ householdName: preview.householdName }))
+      .catch(() => setInvitePreview("invalid"));
+  }, [inviteToken]);
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (mismatch) return;
+    onRegister({
+      username,
+      email,
+      firstName,
+      lastName,
+      password,
+      inviteToken: inviteToken ?? undefined
+    });
+  };
+
+  return (
+    <AuthShell title="Create an account">
+      {inviteToken && invitePreview && (
+        <p className="mt-3 rounded-lg bg-brand-100 dark:bg-brand-600/20 px-3 py-2 text-sm text-brand-800 dark:text-brand-50">
+          {invitePreview === "invalid"
+            ? "This invite link is invalid or has expired. You can still create your own household below."
+            : `You're joining "${invitePreview.householdName}".`}
+        </p>
+      )}
+      {!inviteToken && (
+        <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+          A new household will be created for you — you can invite others to it afterward.
+        </p>
+      )}
+      <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
+        <div className="grid grid-cols-2 gap-3">
           <input
             required
             autoFocus
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
-            placeholder="Username"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            className={authInputClass}
+            placeholder="First name"
           />
           <input
             required
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
-            placeholder="Password"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            className={authInputClass}
+            placeholder="Last name"
           />
-          {error && <p className="text-sm text-rose-600 dark:text-rose-300">Incorrect username or password.</p>}
+        </div>
+        <input
+          required
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          className={authInputClass}
+          placeholder="Username"
+        />
+        <input
+          required
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className={authInputClass}
+          placeholder="Email address"
+        />
+        <input
+          required
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className={authInputClass}
+          placeholder="Password (min. 8 characters)"
+        />
+        <input
+          required
+          type="password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          className={`${authInputClass} ${mismatch ? "border-rose-500 bg-rose-50 dark:bg-rose-950/30" : ""}`}
+          placeholder="Confirm password"
+        />
+        {mismatch && <p className="text-sm text-rose-600 dark:text-rose-300">Passwords do not match.</p>}
+        {error && <p className="text-sm text-rose-600 dark:text-rose-300">{error}</p>}
+        <button
+          type="submit"
+          disabled={isPending || mismatch}
+          className="rounded-lg bg-brand-600 px-4 py-2 font-medium text-white transition hover:bg-brand-500 disabled:opacity-50"
+        >
+          {isPending ? "Creating account..." : "Create account"}
+        </button>
+      </form>
+      <button type="button" onClick={onBackToLogin} className="mt-4 text-sm text-brand-600 dark:text-brand-100 hover:underline">
+        Back to sign in
+      </button>
+    </AuthShell>
+  );
+}
+
+function ForgotPasswordPage({
+  onSubmit,
+  isPending,
+  isSuccess,
+  onBackToLogin
+}: {
+  onSubmit: (email: string) => void;
+  isPending: boolean;
+  isSuccess: boolean;
+  onBackToLogin: () => void;
+}) {
+  const [email, setEmail] = useState("");
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    onSubmit(email);
+  };
+
+  return (
+    <AuthShell title="Reset your password">
+      {isSuccess ? (
+        <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
+          If an account exists for that email, we've sent a link to reset your password.
+        </p>
+      ) : (
+        <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            Enter your email and we'll send you a link to reset your password.
+          </p>
+          <input
+            required
+            autoFocus
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={authInputClass}
+            placeholder="Email address"
+          />
           <button
             type="submit"
             disabled={isPending}
             className="rounded-lg bg-brand-600 px-4 py-2 font-medium text-white transition hover:bg-brand-500 disabled:opacity-50"
           >
-            {isPending ? "Signing in..." : "Sign in"}
+            {isPending ? "Sending..." : "Send reset link"}
           </button>
         </form>
+      )}
+      <button type="button" onClick={onBackToLogin} className="mt-4 text-sm text-brand-600 dark:text-brand-100 hover:underline">
+        Back to sign in
+      </button>
+    </AuthShell>
+  );
+}
+
+function ResetPasswordPage({
+  token,
+  onSubmit,
+  error,
+  isPending,
+  isSuccess,
+  onBackToLogin
+}: {
+  token: string | null;
+  onSubmit: (args: { token: string; newPassword: string }) => void;
+  error: string | null;
+  isPending: boolean;
+  isSuccess: boolean;
+  onBackToLogin: () => void;
+}) {
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const mismatch = confirmPassword.length > 0 && newPassword !== confirmPassword;
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (mismatch || !token) return;
+    onSubmit({ token, newPassword });
+  };
+
+  return (
+    <AuthShell title="Choose a new password">
+      {!token ? (
+        <p className="mt-4 text-sm text-rose-600 dark:text-rose-300">This reset link is missing its token.</p>
+      ) : isSuccess ? (
+        <p className="mt-4 text-sm text-emerald-600 dark:text-emerald-300">
+          Password updated. You can now sign in with your new password.
+        </p>
+      ) : (
+        <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
+          <input
+            required
+            autoFocus
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            className={authInputClass}
+            placeholder="New password (min. 8 characters)"
+          />
+          <input
+            required
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            className={`${authInputClass} ${mismatch ? "border-rose-500 bg-rose-50 dark:bg-rose-950/30" : ""}`}
+            placeholder="Confirm new password"
+          />
+          {mismatch && <p className="text-sm text-rose-600 dark:text-rose-300">Passwords do not match.</p>}
+          {error && <p className="text-sm text-rose-600 dark:text-rose-300">{error}</p>}
+          <button
+            type="submit"
+            disabled={isPending || mismatch}
+            className="rounded-lg bg-brand-600 px-4 py-2 font-medium text-white transition hover:bg-brand-500 disabled:opacity-50"
+          >
+            {isPending ? "Saving..." : "Save new password"}
+          </button>
+        </form>
+      )}
+      <button type="button" onClick={onBackToLogin} className="mt-4 text-sm text-brand-600 dark:text-brand-100 hover:underline">
+        Back to sign in
+      </button>
+    </AuthShell>
+  );
+}
+
+function InviteHouseholdModal({
+  onClose,
+  onSubmit,
+  isPending,
+  error,
+  isSuccess
+}: {
+  onClose: () => void;
+  onSubmit: (email: string) => void;
+  isPending: boolean;
+  error: string | null;
+  isSuccess: boolean;
+}) {
+  const [email, setEmail] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    onSubmit(email);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-slate-950/80 p-4">
+      <div className="w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6">
+        <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
+          <Mail className="h-4 w-4" />
+          Invite to household
+        </h3>
+        {isSuccess ? (
+          <div className="mt-4 space-y-4">
+            <p className="text-sm text-emerald-600 dark:text-emerald-300">Invite sent to {email}.</p>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full rounded-lg bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500"
+            >
+              Close
+            </button>
+          </div>
+        ) : (
+          <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              They'll get an email with a link to join your household and see the same inventory.
+            </p>
+            <input
+              ref={inputRef}
+              required
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={authInputClass}
+              placeholder="Email address"
+            />
+            {error && <p className="text-sm text-rose-600 dark:text-rose-300">{error}</p>}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isPending}
+                className="flex-1 rounded-lg bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500 disabled:opacity-50"
+              >
+                {isPending ? "Sending..." : "Send invite"}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

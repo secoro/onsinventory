@@ -11,20 +11,21 @@ import java.util.Optional;
 
 @Repository
 public interface InventoryItemRepository extends JpaRepository<InventoryItem, Long> {
-    List<InventoryItem> findByLocationId(Long locationId);
+    List<InventoryItem> findByHouseholdId(Long householdId);
 
-    List<InventoryItem> findByCategory(String category);
+    Optional<InventoryItem> findByIdAndHouseholdId(Long id, Long householdId);
 
-    Optional<InventoryItem> findByNameIgnoreCase(String name);
+    List<InventoryItem> findByLocationIdAndHouseholdId(Long locationId, Long householdId);
 
-    @Query("SELECT i FROM InventoryItem i WHERE i.expiryDate IS NOT NULL AND i.expiryDate <= :date")
-    List<InventoryItem> findExpiringItems(LocalDate date);
+    List<InventoryItem> findByCategoryAndHouseholdId(String category, Long householdId);
 
-    @Query("SELECT i FROM InventoryItem i WHERE i.expired = true")
-    List<InventoryItem> findExpiredItems();
+    Optional<InventoryItem> findByNameIgnoreCaseAndHouseholdId(String name, Long householdId);
 
-    @Query("SELECT i FROM InventoryItem i WHERE i.expiryDate IS NOT NULL AND i.expiryDate > :today AND i.expiryDate <= :soon")
-    List<InventoryItem> findExpiringSoonItems(LocalDate today, LocalDate soon);
+    List<InventoryItem> findByNameContainingIgnoreCaseAndHouseholdId(String name, Long householdId);
 
-    List<InventoryItem> findByNameContainingIgnoreCase(String name);
+    @Query("SELECT i FROM InventoryItem i WHERE i.household.id = :householdId AND i.expired = true")
+    List<InventoryItem> findExpiredItems(Long householdId);
+
+    @Query("SELECT i FROM InventoryItem i WHERE i.household.id = :householdId AND i.expiryDate IS NOT NULL AND i.expiryDate > :today AND i.expiryDate <= :soon")
+    List<InventoryItem> findExpiringSoonItems(Long householdId, LocalDate today, LocalDate soon);
 }

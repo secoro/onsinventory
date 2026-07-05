@@ -45,6 +45,10 @@ public class Recipe {
 
     private String cuisine; // "Italian", "French", "Asian", etc.
 
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "household_id")
+    private Household household;
+
     @OneToMany(mappedBy = "recipe", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private Set<RecipeIngredient> ingredients = new HashSet<>();

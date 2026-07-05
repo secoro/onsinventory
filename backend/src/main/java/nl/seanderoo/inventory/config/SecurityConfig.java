@@ -53,8 +53,14 @@ public class SecurityConfig {
             http
                     .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                     .authorizeHttpRequests(auth -> auth
-                            .requestMatchers("/api/auth/login").permitAll()
-                            .requestMatchers("/api/auth/config").permitAll()
+                            .requestMatchers(
+                                    "/api/auth/login",
+                                    "/api/auth/register",
+                                    "/api/auth/forgot-password",
+                                    "/api/auth/reset-password",
+                                    "/api/auth/config"
+                            ).permitAll()
+                            .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/household/invite/*").permitAll()
                             .requestMatchers("/h2-console/**").permitAll()
                             .anyRequest().authenticated()
                     )

@@ -1,7 +1,16 @@
 export type AuthUser = {
   username: string;
+  email?: string;
   firstName: string;
+  lastName?: string;
+  householdName?: string;
   token: string;
+};
+
+export type HouseholdMember = {
+  username: string;
+  firstName: string;
+  lastName: string;
 };
 
 export type Location = {

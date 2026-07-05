@@ -95,7 +95,16 @@ APP_BOOTSTRAP_ENABLED=false
 APP_CORS_ALLOWED_ORIGINS=https://onsinventory.com,https://www.onsinventory.com
 VITE_API_BASE_URL=https://api.onsinventory.com
 CLOUDFLARE_TUNNEL_TOKEN=<token-uit-stap-4>
+APP_FRONTEND_URL=https://onsinventory.com
+APP_MAIL_FROM=onsinventory@onsinventory.com
+RESEND_API_KEY=<api-key-uit-resend-dashboard>
 ```
+
+`RESEND_API_KEY` is nodig voor "wachtwoord vergeten"-mails en huishouden-uitnodigingen
+([Resend](https://resend.com), gratis tot 3.000 mails/maand). Verifieer `onsinventory.com`
+als domein in het Resend dashboard - dat voegt een paar DNS-records toe die je direct in
+Cloudflare DNS kunt zetten (het domein staat daar al). Zonder geldige `RESEND_API_KEY`
+falen deze e-mails stil (gelogd als warning) - de rest van de app blijft gewoon werken.
 
 ### Stap 6: Caddy domeinen controleren
 
@@ -189,6 +198,9 @@ Voeg in GitHub repository settings deze secrets toe:
 - `APP_CORS_ALLOWED_ORIGINS`
 - `VITE_API_BASE_URL`
 - `CLOUDFLARE_TUNNEL_TOKEN`
+- `APP_FRONTEND_URL`
+- `APP_MAIL_FROM`
+- `RESEND_API_KEY`
 
 #### Betekenis van de secrets
 
@@ -202,6 +214,9 @@ APP_BOOTSTRAP_ENABLED=false
 APP_CORS_ALLOWED_ORIGINS=https://onsinventory.com,https://www.onsinventory.com
 VITE_API_BASE_URL=https://api.onsinventory.com
 CLOUDFLARE_TUNNEL_TOKEN=<token-uit-de-cloudflare-zero-trust-dashboard>
+APP_FRONTEND_URL=https://onsinventory.com
+APP_MAIL_FROM=onsinventory@onsinventory.com
+RESEND_API_KEY=<api-key-uit-resend-dashboard>
 ```
 
 ### Stap 12: Eerste automatische deploy testen
@@ -360,6 +375,25 @@ Controleer:
 - GitHub Actions run output
 - of de self-hosted runner op de Pi actief is (repository → Settings → Actions → Runners)
 - of Docker beschikbaar is voor de gebruiker waaronder de runner draait
+
+---
+
+## Database migrations (Flyway)
+
+Production (the `prod` profile, Postgres) now manages its schema with Flyway
+instead of Hibernate's `ddl-auto`. Migrations live in
+`src/main/resources/db/migration/postgresql/`. On first deploy of this
+version, Flyway will notice the existing tables predate it, automatically
+baseline the database at V1, and then run `V2__add_households.sql` for real —
+this creates the `households` table, assigns all of Sean and Natalia's
+existing data to one household, and backfills their `email`/`last_name`.
+This was verified against a copy of the pre-migration schema before shipping;
+no manual DB steps are needed on deploy. Local dev (H2) is unaffected and
+keeps using `ddl-auto: update`, since it's a fresh in-memory database on every
+run with nothing to migrate.
+
+For any future schema change: add a new `V3__...sql` (etc.) file in that same
+folder rather than relying on Hibernate to alter the production schema.
 
 ---
 

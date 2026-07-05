@@ -8,6 +8,8 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  flyway:
+    enabled: false
   h2:
     console:
       enabled: true
@@ -38,3 +40,8 @@ app:
   jwt:
     secret: ${APP_JWT_SECRET:onsinventory-jwt-secret-key-minimum-32-characters-long}
     expiration: 604800000
+  frontend-url: ${APP_FRONTEND_URL:http://localhost:5173}
+  mail:
+    from: ${APP_MAIL_FROM:onsinventory@onsinventory.com}
+  resend:
+    api-key: ${RESEND_API_KEY:}

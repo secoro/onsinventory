@@ -7,6 +7,7 @@ import nl.seanderoo.inventory.exception.BadRequestException;
 import nl.seanderoo.inventory.exception.ResourceNotFoundException;
 import nl.seanderoo.inventory.model.InventoryItem;
 import nl.seanderoo.inventory.model.Location;
+import nl.seanderoo.inventory.model.Recipe;
 import nl.seanderoo.inventory.model.RecipeIngredient;
 import nl.seanderoo.inventory.repository.InventoryItemRepository;
 import nl.seanderoo.inventory.repository.LocationRepository;
@@ -92,21 +93,28 @@ public class InventoryService {
     private final InventoryItemRepository inventoryItemRepository;
     private final LocationRepository locationRepository;
     private final RecipeRepository recipeRepository;
+    private final CurrentHouseholdProvider currentHouseholdProvider;
 
-    public InventoryService(InventoryItemRepository inventoryItemRepository, LocationRepository locationRepository, RecipeRepository recipeRepository) {
+    public InventoryService(InventoryItemRepository inventoryItemRepository,
+                             LocationRepository locationRepository,
+                             RecipeRepository recipeRepository,
+                             CurrentHouseholdProvider currentHouseholdProvider) {
         this.inventoryItemRepository = inventoryItemRepository;
         this.locationRepository = locationRepository;
         this.recipeRepository = recipeRepository;
+        this.currentHouseholdProvider = currentHouseholdProvider;
     }
 
     public InventoryItemDTO addItem(InventoryItemDTO dto) {
         validateCreateRequest(dto);
-        Location location = resolveLocation(dto.getLocation());
+        Long householdId = currentHouseholdProvider.getHouseholdId();
+        Location location = resolveLocation(dto.getLocation(), householdId);
 
         InventoryItem item = InventoryItem.builder()
                 .name(dto.getName())
                 .category(dto.getCategory())
                 .location(location)
+                .household(currentHouseholdProvider.getHousehold())
                 .quantity(dto.getQuantity())
                 .unit(dto.getUnit())
                 .expiryDate(dto.getExpiryDate())
@@ -118,8 +126,7 @@ public class InventoryService {
     }
 
     public InventoryItemDTO updateItem(Long id, InventoryItemDTO dto) {
-        InventoryItem item = inventoryItemRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Item not found: " + id));
+        InventoryItem item = findOwnedItem(id);
 
         if (dto.getName() != null) item.setName(dto.getName());
         if (dto.getCategory() != null) item.setCategory(dto.getCategory());
@@ -127,67 +134,63 @@ public class InventoryService {
         if (dto.getUnit() != null) item.setUnit(dto.getUnit());
         if (dto.getExpiryDate() != null) item.setExpiryDate(dto.getExpiryDate());
         if (dto.getNotes() != null) item.setNotes(dto.getNotes());
-        if (dto.getLocation() != null) item.setLocation(resolveLocation(dto.getLocation()));
+        if (dto.getLocation() != null) item.setLocation(resolveLocation(dto.getLocation(), currentHouseholdProvider.getHouseholdId()));
 
         InventoryItem updated = inventoryItemRepository.save(item);
         return toDTO(updated);
     }
 
     public void deleteItem(Long id) {
-        if (!inventoryItemRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Item not found: " + id);
-        }
-        inventoryItemRepository.deleteById(id);
+        inventoryItemRepository.delete(findOwnedItem(id));
     }
 
     public InventoryItemDTO getItem(Long id) {
-        return inventoryItemRepository.findById(id)
-                .map(this::toDTO)
-                .orElseThrow(() -> new ResourceNotFoundException("Item not found: " + id));
+        return toDTO(findOwnedItem(id));
     }
 
     public List<InventoryItemDTO> getAllItems() {
-        return inventoryItemRepository.findAll().stream()
+        return inventoryItemRepository.findByHouseholdId(currentHouseholdProvider.getHouseholdId()).stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
     public List<InventoryItemDTO> getItemsByLocation(String location) {
-        Location loc = locationRepository.findByName(location)
+        Long householdId = currentHouseholdProvider.getHouseholdId();
+        Location loc = locationRepository.findByNameAndHouseholdId(location, householdId)
                 .orElseThrow(() -> new ResourceNotFoundException("Location not found: " + location));
-        return inventoryItemRepository.findByLocationId(loc.getId()).stream()
+        return inventoryItemRepository.findByLocationIdAndHouseholdId(loc.getId(), householdId).stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
     public List<InventoryItemDTO> getItemsByCategory(String category) {
-        return inventoryItemRepository.findByCategory(category).stream()
+        return inventoryItemRepository.findByCategoryAndHouseholdId(category, currentHouseholdProvider.getHouseholdId()).stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
     public List<InventoryItemDTO> searchItems(String query) {
-        return inventoryItemRepository.findByNameContainingIgnoreCase(query).stream()
+        return inventoryItemRepository.findByNameContainingIgnoreCaseAndHouseholdId(query, currentHouseholdProvider.getHouseholdId()).stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
     public List<InventoryItemDTO> getExpiringItems() {
+        Long householdId = currentHouseholdProvider.getHouseholdId();
         LocalDate soon = LocalDate.now().plusDays(3);
-        return inventoryItemRepository.findExpiringSoonItems(LocalDate.now(), soon).stream()
+        return inventoryItemRepository.findExpiringSoonItems(householdId, LocalDate.now(), soon).stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
     public List<InventoryItemDTO> getExpiredItems() {
-        return inventoryItemRepository.findExpiredItems().stream()
+        return inventoryItemRepository.findExpiredItems(currentHouseholdProvider.getHouseholdId()).stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
     public RecipeAvailabilityDTO checkAvailability(Long recipeId, int requestedServings) {
-        var recipe = recipeRepository.findById(recipeId)
-                .orElseThrow(() -> new ResourceNotFoundException("Recipe not found: " + recipeId));
+        Recipe recipe = findOwnedRecipe(recipeId);
 
         double scale = scale(recipe.getServings(), requestedServings);
         List<String> insufficient = new ArrayList<>();
@@ -248,8 +251,7 @@ public class InventoryService {
     }
 
     public CookResultDTO cookRecipe(Long recipeId, int requestedServings, List<String> skippedIngredients) {
-        var recipe = recipeRepository.findById(recipeId)
-                .orElseThrow(() -> new ResourceNotFoundException("Recipe not found: " + recipeId));
+        Recipe recipe = findOwnedRecipe(recipeId);
 
         double scale = scale(recipe.getServings(), requestedServings);
         List<String> consumed = new ArrayList<>();
@@ -314,14 +316,25 @@ public class InventoryService {
     }
 
     private List<InventoryItem> findCandidates(String ingredientName) {
-        List<InventoryItem> candidates = inventoryItemRepository.findByNameContainingIgnoreCase(ingredientName);
+        Long householdId = currentHouseholdProvider.getHouseholdId();
+        List<InventoryItem> candidates = inventoryItemRepository.findByNameContainingIgnoreCaseAndHouseholdId(ingredientName, householdId);
         if (candidates.isEmpty()) {
             String lower = ingredientName.toLowerCase();
-            candidates = inventoryItemRepository.findAll().stream()
+            candidates = inventoryItemRepository.findByHouseholdId(householdId).stream()
                     .filter(item -> lower.contains(item.getName().toLowerCase()))
                     .collect(Collectors.toList());
         }
         return candidates;
+    }
+
+    private Recipe findOwnedRecipe(Long recipeId) {
+        return recipeRepository.findByIdAndHouseholdId(recipeId, currentHouseholdProvider.getHouseholdId())
+                .orElseThrow(() -> new ResourceNotFoundException("Recipe not found: " + recipeId));
+    }
+
+    private InventoryItem findOwnedItem(Long id) {
+        return inventoryItemRepository.findByIdAndHouseholdId(id, currentHouseholdProvider.getHouseholdId())
+                .orElseThrow(() -> new ResourceNotFoundException("Item not found: " + id));
     }
 
     private static double scale(Integer baseServings, int requestedServings) {
@@ -367,8 +380,8 @@ public class InventoryService {
         }
     }
 
-    private Location resolveLocation(String locationName) {
-        return locationRepository.findByName(locationName)
+    private Location resolveLocation(String locationName, Long householdId) {
+        return locationRepository.findByNameAndHouseholdId(locationName, householdId)
                 .orElseThrow(() -> new ResourceNotFoundException("Location not found: " + locationName));
     }
 }

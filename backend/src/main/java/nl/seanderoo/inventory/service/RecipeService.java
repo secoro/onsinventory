@@ -21,9 +21,11 @@ import java.util.stream.Collectors;
 public class RecipeService {
 
     private final RecipeRepository recipeRepository;
+    private final CurrentHouseholdProvider currentHouseholdProvider;
 
-    public RecipeService(RecipeRepository recipeRepository) {
+    public RecipeService(RecipeRepository recipeRepository, CurrentHouseholdProvider currentHouseholdProvider) {
         this.recipeRepository = recipeRepository;
+        this.currentHouseholdProvider = currentHouseholdProvider;
     }
 
     public RecipeDTO addRecipe(RecipeDTO dto) {
@@ -38,6 +40,7 @@ public class RecipeService {
                 .cookingTimeMinutes(dto.getCookingTimeMinutes())
                 .difficulty(dto.getDifficulty())
                 .cuisine(dto.getCuisine())
+                .household(currentHouseholdProvider.getHousehold())
                 .build();
 
         recipe.setIngredients(toIngredients(dto.getIngredients(), recipe));
@@ -47,8 +50,7 @@ public class RecipeService {
     }
 
     public RecipeDTO updateRecipe(Long id, RecipeDTO dto) {
-        Recipe recipe = recipeRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Recipe not found: " + id));
+        Recipe recipe = findOwnedRecipe(id);
 
         if (dto.getName() != null) recipe.setName(dto.getName());
         if (dto.getDescription() != null) recipe.setDescription(dto.getDescription());
@@ -68,40 +70,40 @@ public class RecipeService {
     }
 
     public void deleteRecipe(Long id) {
-        if (!recipeRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Recipe not found: " + id);
-        }
-        recipeRepository.deleteById(id);
+        recipeRepository.delete(findOwnedRecipe(id));
     }
 
     public RecipeDTO getRecipe(Long id) {
-        return recipeRepository.findById(id)
-                .map(this::toDTO)
-                .orElseThrow(() -> new ResourceNotFoundException("Recipe not found: " + id));
+        return toDTO(findOwnedRecipe(id));
     }
 
     public List<RecipeDTO> getAllRecipes() {
-        return recipeRepository.findAll().stream()
+        return recipeRepository.findAllByHouseholdId(currentHouseholdProvider.getHouseholdId()).stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
     public List<RecipeDTO> getRecipesByDifficulty(String difficulty) {
-        return recipeRepository.findByDifficulty(difficulty).stream()
+        return recipeRepository.findByDifficultyAndHouseholdId(difficulty, currentHouseholdProvider.getHouseholdId()).stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
     public List<RecipeDTO> getRecipesByCuisine(String cuisine) {
-        return recipeRepository.findByCuisine(cuisine).stream()
+        return recipeRepository.findByCuisineAndHouseholdId(cuisine, currentHouseholdProvider.getHouseholdId()).stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
     public List<RecipeDTO> searchRecipes(String query) {
-        return recipeRepository.findByNameContainingIgnoreCase(query).stream()
+        return recipeRepository.findByNameContainingIgnoreCaseAndHouseholdId(query, currentHouseholdProvider.getHouseholdId()).stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
+    }
+
+    private Recipe findOwnedRecipe(Long id) {
+        return recipeRepository.findByIdAndHouseholdId(id, currentHouseholdProvider.getHouseholdId())
+                .orElseThrow(() -> new ResourceNotFoundException("Recipe not found: " + id));
     }
 
     private RecipeDTO toDTO(Recipe recipe) {

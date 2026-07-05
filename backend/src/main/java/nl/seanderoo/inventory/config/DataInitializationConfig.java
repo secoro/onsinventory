@@ -1,10 +1,12 @@
 package nl.seanderoo.inventory.config;
 
+import nl.seanderoo.inventory.model.Household;
 import nl.seanderoo.inventory.model.Location;
 import nl.seanderoo.inventory.model.InventoryItem;
 import nl.seanderoo.inventory.model.Recipe;
 import nl.seanderoo.inventory.model.RecipeIngredient;
 import nl.seanderoo.inventory.model.User;
+import nl.seanderoo.inventory.repository.HouseholdRepository;
 import nl.seanderoo.inventory.repository.InventoryItemRepository;
 import nl.seanderoo.inventory.repository.LocationRepository;
 import nl.seanderoo.inventory.repository.RecipeRepository;
@@ -28,6 +30,7 @@ public class DataInitializationConfig {
             RecipeRepository recipeRepository,
             InventoryItemRepository inventoryItemRepository,
             UserRepository userRepository,
+            HouseholdRepository householdRepository,
             PasswordEncoder passwordEncoder,
             @Value("${app.bootstrap.enabled:true}") boolean bootstrapEnabled
     ) {
@@ -36,24 +39,39 @@ public class DataInitializationConfig {
                 return;
             }
 
+            Household household;
             if (userRepository.count() == 0) {
+                household = householdRepository.save(Household.builder()
+                        .name("Sean & Natalia's Household")
+                        .build());
+
                 userRepository.save(User.builder()
                         .username("sean")
+                        .email("deroosean@gmail.com")
                         .firstName("Sean")
+                        .lastName("de Roo")
                         .password(passwordEncoder.encode("Test!234"))
+                        .household(household)
                         .build());
                 userRepository.save(User.builder()
                         .username("natalia")
+                        .email("nacardenasni@gmail.com")
                         .firstName("Natalia")
+                        .lastName("Cardenas Nino")
                         .password(passwordEncoder.encode("Test!234"))
+                        .household(household)
                         .build());
+            } else {
+                household = householdRepository.findAll().stream()
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalStateException("Expected a bootstrap household to exist"));
             }
 
             // Initialize default locations
             if (locationRepository.count() == 0) {
-                locationRepository.save(Location.pantry());
-                locationRepository.save(Location.fridge());
-                locationRepository.save(Location.freezer());
+                locationRepository.save(Location.pantry(household));
+                locationRepository.save(Location.fridge(household));
+                locationRepository.save(Location.freezer(household));
             }
 
             // Initialize sample recipes
@@ -68,6 +86,7 @@ public class DataInitializationConfig {
                         .cookingTimeMinutes(15)
                         .difficulty("easy")
                         .cuisine("Italian")
+                        .household(household)
                         .build();
 
                 Set<RecipeIngredient> tomatoIngredients = new HashSet<>();
@@ -112,6 +131,7 @@ public class DataInitializationConfig {
                         .cookingTimeMinutes(10)
                         .difficulty("easy")
                         .cuisine("Asian")
+                        .household(household)
                         .build();
 
                 Set<RecipeIngredient> stirFryIngredients = new HashSet<>();
@@ -149,6 +169,7 @@ public class DataInitializationConfig {
                         .cookingTimeMinutes(5)
                         .difficulty("easy")
                         .cuisine("French")
+                        .household(household)
                         .build();
 
                 Set<RecipeIngredient> omeletteIngredients = new HashSet<>();
@@ -179,14 +200,15 @@ public class DataInitializationConfig {
 
             // Initialize realistic inventory data (mainly useful for H2/dev restarts)
             if (inventoryItemRepository.count() == 0) {
-                Location pantry = locationRepository.findByName("Pantry").orElseThrow();
-                Location fridge = locationRepository.findByName("Fridge").orElseThrow();
-                Location freezer = locationRepository.findByName("Freezer").orElseThrow();
+                Location pantry = locationRepository.findByNameAndHouseholdId("Pantry", household.getId()).orElseThrow();
+                Location fridge = locationRepository.findByNameAndHouseholdId("Fridge", household.getId()).orElseThrow();
+                Location freezer = locationRepository.findByNameAndHouseholdId("Freezer", household.getId()).orElseThrow();
 
                 inventoryItemRepository.save(InventoryItem.builder()
                         .name("Eggs")
                         .category("dairy")
                         .location(fridge)
+                        .household(household)
                         .quantity(12.0)
                         .unit("pieces")
                         .expiryDate(LocalDate.now().plusDays(6))
@@ -197,6 +219,7 @@ public class DataInitializationConfig {
                         .name("Milk")
                         .category("dairy")
                         .location(fridge)
+                        .household(household)
                         .quantity(1.0)
                         .unit("liters")
                         .expiryDate(LocalDate.now().plusDays(3))
@@ -206,6 +229,7 @@ public class DataInitializationConfig {
                         .name("Butter")
                         .category("dairy")
                         .location(fridge)
+                        .household(household)
                         .quantity(250.0)
                         .unit("grams")
                         .expiryDate(LocalDate.now().plusDays(20))
@@ -215,6 +239,7 @@ public class DataInitializationConfig {
                         .name("Tomato")
                         .category("vegetable")
                         .location(fridge)
+                        .household(household)
                         .quantity(6.0)
                         .unit("pieces")
                         .expiryDate(LocalDate.now().plusDays(2))
@@ -224,6 +249,7 @@ public class DataInitializationConfig {
                         .name("Bell pepper")
                         .category("vegetable")
                         .location(fridge)
+                        .household(household)
                         .quantity(3.0)
                         .unit("pieces")
                         .expiryDate(LocalDate.now().plusDays(4))
@@ -233,6 +259,7 @@ public class DataInitializationConfig {
                         .name("Broccoli")
                         .category("vegetable")
                         .location(fridge)
+                        .household(household)
                         .quantity(1.0)
                         .unit("pieces")
                         .expiryDate(LocalDate.now().plusDays(3))
@@ -242,6 +269,7 @@ public class DataInitializationConfig {
                         .name("Garlic")
                         .category("vegetable")
                         .location(pantry)
+                        .household(household)
                         .quantity(2.0)
                         .unit("bulbs")
                         .expiryDate(LocalDate.now().plusDays(25))
@@ -251,6 +279,7 @@ public class DataInitializationConfig {
                         .name("Onion")
                         .category("vegetable")
                         .location(pantry)
+                        .household(household)
                         .quantity(5.0)
                         .unit("pieces")
                         .expiryDate(LocalDate.now().plusDays(15))
@@ -260,6 +289,7 @@ public class DataInitializationConfig {
                         .name("Pasta")
                         .category("grains")
                         .location(pantry)
+                        .household(household)
                         .quantity(1000.0)
                         .unit("grams")
                         .expiryDate(LocalDate.now().plusDays(180))
@@ -269,6 +299,7 @@ public class DataInitializationConfig {
                         .name("Olive oil")
                         .category("oil")
                         .location(pantry)
+                        .household(household)
                         .quantity(750.0)
                         .unit("ml")
                         .expiryDate(LocalDate.now().plusDays(220))
@@ -278,6 +309,7 @@ public class DataInitializationConfig {
                         .name("Chicken breast")
                         .category("meat")
                         .location(freezer)
+                        .household(household)
                         .quantity(2.0)
                         .unit("pieces")
                         .expiryDate(LocalDate.now().plusDays(90))
@@ -287,6 +319,7 @@ public class DataInitializationConfig {
                         .name("Frozen peas")
                         .category("vegetable")
                         .location(freezer)
+                        .household(household)
                         .quantity(1.0)
                         .unit("bag")
                         .expiryDate(LocalDate.now().plusDays(150))
