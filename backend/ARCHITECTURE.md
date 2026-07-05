@@ -327,7 +327,7 @@ java -jar target/onsinventory-backend-1.0.0.jar \
 |------|---------|
 | **README.md** | Full documentation, guides, examples |
 | **QUICKSTART.md** | 5-minute setup guide |
-| **DEPLOYMENT.md** | Deploy to Docker, K8s, Azure, OpenShift |
+| **DEPLOYMENT.md** | Deploy to Raspberry Pi via Docker Compose + Cloudflare Tunnel |
 | **ARCHITECTURE.md** | This file - technical overview |
 
 ---
