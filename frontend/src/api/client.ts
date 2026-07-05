@@ -46,11 +46,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(message || `Request failed: ${response.status}`);
   }
 
-  if (response.status === 204) {
+  const text = await response.text();
+  if (!text) {
     return undefined as T;
   }
-
-  return (await response.json()) as T;
+  return JSON.parse(text) as T;
 }
 
 export function getLocations() {

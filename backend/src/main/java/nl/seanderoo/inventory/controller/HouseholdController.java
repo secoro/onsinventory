@@ -8,7 +8,6 @@ import nl.seanderoo.inventory.model.HouseholdInvite;
 import nl.seanderoo.inventory.model.User;
 import nl.seanderoo.inventory.repository.UserRepository;
 import nl.seanderoo.inventory.service.HouseholdService;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -39,7 +38,7 @@ public class HouseholdController {
     @PostMapping("/invite")
     public ResponseEntity<Void> invite(@AuthenticationPrincipal User user, @RequestBody InviteRequestDTO request) {
         householdService.invite(user, request.getEmail());
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/invite/{token}")
