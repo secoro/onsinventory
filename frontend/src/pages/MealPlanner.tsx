@@ -288,7 +288,13 @@ function GroceryModal({
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const text = groceryText(items, weekDays);
+  const [removed, setRemoved] = useState<Set<string>>(new Set());
+  const visibleItems = items.filter((name) => !removed.has(name));
+  const text = groceryText(visibleItems, weekDays);
+
+  const removeItem = (name: string) => {
+    setRemoved((prev) => new Set(prev).add(name));
+  };
 
   const openWhatsApp = () => {
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
@@ -326,17 +332,25 @@ function GroceryModal({
         </div>
 
         <div className="mt-4 flex-1 overflow-y-auto">
-          {items.length === 0 ? (
+          {visibleItems.length === 0 ? (
             <p className="text-sm text-emerald-600 dark:text-emerald-400">You're well stocked — nothing to buy!</p>
           ) : (
             <ul className="space-y-1.5">
-              {items.map((name) => (
+              {visibleItems.map((name) => (
                 <li
                   key={name}
-                  className="flex items-center gap-3 rounded-lg bg-slate-50 dark:bg-slate-800/70 px-3 py-2 text-sm"
+                  className="group flex items-center gap-3 rounded-lg bg-slate-50 dark:bg-slate-800/70 px-3 py-2 text-sm"
                 >
                   <span className="text-slate-400 dark:text-slate-500">•</span>
-                  <span className="text-slate-800 dark:text-white">{name}</span>
+                  <span className="flex-1 text-slate-800 dark:text-white">{name}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeItem(name)}
+                    title="Remove from list"
+                    className="shrink-0 rounded p-1 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200 transition"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </li>
               ))}
             </ul>
