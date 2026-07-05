@@ -145,6 +145,13 @@ export default function App() {
   }, [dark]);
 
   useEffect(() => {
+    if (urlAuthState.view !== "login") {
+      // Landed on a join or reset-password link - always show that flow instead
+      // of silently resuming whatever session happens to already be in this
+      // browser (which would otherwise skip the invite/reset entirely).
+      setAuthChecked(true);
+      return;
+    }
     if (import.meta.env.VITE_SECURITY_ENABLED === "false") {
       setAuthUser({ username: "local", firstName: "Developer", token: "" });
       setAuthChecked(true);
