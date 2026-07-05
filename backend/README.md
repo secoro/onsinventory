@@ -361,47 +361,44 @@ MIT
 Deze repository bevat nu ook een self-hosted productie-opzet voor Raspberry Pi met:
 
 - `backend/docker-compose.yml` voor PostgreSQL, backend, frontend en Caddy
-- automatische HTTPS via Caddy
+- `backend/docker-compose.cloudflare.yml` voor de `cloudflared` tunnel container
+- TLS termination via Cloudflare (geen Let's Encrypt/poorten nodig op de Pi zelf)
 - frontend op `https://onsinventory.com`
 - backend API op `https://api.onsinventory.com`
-- GitHub Actions deployment naar de Pi via SSH
+- GitHub Actions deployment via een self-hosted runner op de Pi (geen SSH)
+
+Zie `backend/DEPLOYMENT.md` voor de volledige stap-voor-stap gids.
 
 ### Vereisten op de Pi
 
 - Raspberry Pi OS 64-bit
 - Docker en Docker Compose plugin
-- poorten `80` en `443` open naar de Pi
-- DNS records voor:
-  - `onsinventory.com`
-  - `www.onsinventory.com`
-  - `api.onsinventory.com`
+- een self-hosted GitHub Actions runner (repository → Settings → Actions → Runners)
+- geen open poorten nodig - `cloudflared` maakt alleen uitgaande verbindingen
 
 ### Eerste setup
 
 ```bash
 cd /path/to/onsinventory/backend
 cp .env.pi.example .env.pi
-# pas daarna POSTGRES_PASSWORD en eventuele domeinen aan
+# pas daarna POSTGRES_PASSWORD, CLOUDFLARE_TUNNEL_TOKEN en eventuele domeinen aan
 
-docker compose --env-file .env.pi up -d --build
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi up -d --build
 ```
 
 ### GitHub Actions secrets voor deploy naar de Pi
 
 Voeg deze repository secrets toe:
 
-- `PI_HOST`
-- `PI_USER`
-- `PI_APP_PATH`
-- `PI_SSH_PRIVATE_KEY`
 - `POSTGRES_DB`
 - `POSTGRES_USER`
 - `POSTGRES_PASSWORD`
 - `APP_BOOTSTRAP_ENABLED`
 - `APP_CORS_ALLOWED_ORIGINS`
 - `VITE_API_BASE_URL`
+- `CLOUDFLARE_TUNNEL_TOKEN`
 
-Na elke merge naar `main` draait `.github/workflows/deploy-to-pi.yml` automatisch tests en daarna een redeploy op de Raspberry Pi.
+Na elke merge naar `main` draait `.github/workflows/deploy-to-pi.yml` automatisch tests en daarna een redeploy op de Raspberry Pi via de self-hosted runner.
 
 ````
 This is the description of what the code block changes:

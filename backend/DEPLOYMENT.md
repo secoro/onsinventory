@@ -1,23 +1,27 @@
 # 🚀 Deployment Guide
 
-Gids voor het deployen van OnsInventory. De aanbevolen productie-opzet voor deze repository is nu een self-hosted Raspberry Pi deployment met Docker Compose, PostgreSQL, frontend, backend en Caddy.
+Gids voor het deployen van OnsInventory. De aanbevolen productie-opzet voor deze repository is nu een self-hosted Raspberry Pi deployment met Docker Compose, PostgreSQL, frontend, backend, Caddy en een Cloudflare Tunnel.
 
 ## Raspberry Pi Deployment (Recommended)
 
 ### Architectuur
 
-De productie-opzet bestaat uit vier containers:
+De productie-opzet bestaat uit vijf containers:
 
-- `caddy` voor HTTPS en reverse proxy
+- `cloudflared` voor de uitgaande tunnel naar Cloudflare (geen inbound poorten nodig)
+- `caddy` voor interne reverse proxy routing op basis van hostname
 - `onsinventory-frontend` voor de React/Vite frontend
 - `onsinventory-backend` voor de Spring Boot API
 - `postgres` voor persistente data
 
 Verkeer loopt als volgt:
 
-- `https://onsinventory.com` → frontend
-- `https://www.onsinventory.com` → frontend
-- `https://api.onsinventory.com` → backend
+- bezoeker → Cloudflare edge (TLS termination hier) → Cloudflare Tunnel (uitgaand vanaf de Pi, dus geen open poorten op de router) → `caddy` → `onsinventory-frontend` of `onsinventory-backend`
+- `onsinventory.com` → frontend
+- `www.onsinventory.com` → frontend
+- `api.onsinventory.com` → backend
+
+Omdat de Pi op een netwerk staat dat met huisgenoten wordt gedeeld, forwarden we bewust geen poorten op de router: `cloudflared` maakt alleen uitgaande verbindingen, dus er hoeft niets publiek bereikbaar te zijn vanaf het thuisnetwerk.
 
 ### Stap 1: Raspberry Pi voorbereiden
 
@@ -61,26 +65,19 @@ git clone <YOUR_GIT_REMOTE_URL> onsinventory
 cd onsinventory/backend
 ```
 
-### Stap 4: Domeinen naar je thuisverbinding laten wijzen
+### Stap 4: Cloudflare Tunnel instellen
 
-Maak DNS records aan bij je domeinprovider:
+1. Koop het domein (bijv. via [Cloudflare Registrar](https://developers.cloudflare.com/registrar/)) - dit zet de nameservers meteen op Cloudflare, geen aparte migratie nodig. Kocht je elders? Voeg de site toe in het Cloudflare dashboard en wijzig de nameservers bij je registrar.
+2. Ga naar de [Cloudflare Zero Trust dashboard](https://one.dash.cloudflare.com/) → **Networks → Tunnels → Create a tunnel**.
+3. Kies connector type **Cloudflared**, geef de tunnel een naam (bijv. `onsinventory-pi`) en kopieer de tunnel token die je te zien krijgt - deze heb je nodig in Stap 5.
+4. Voeg onder **Public Hostnames** drie routes toe, allemaal wijzend naar dezelfde interne service `http://caddy:80`:
+   - `onsinventory.com`
+   - `www.onsinventory.com`
+   - `api.onsinventory.com`
 
-- `@` of `onsinventory.com` → publieke IP van je thuisnetwerk
-- `www` → publieke IP van je thuisnetwerk
-- `api` → publieke IP van je thuisnetwerk
+   Cloudflare maakt hierbij automatisch de bijbehorende DNS-records aan - er is geen handmatige DNS- of poort-forwarding stap nodig, en je hoeft niets aan de router te wijzigen.
 
-Als je een dynamisch IP-adres hebt, gebruik dan Dynamic DNS of update je records wanneer je IP verandert.
-
-### Stap 5: Port forwarding instellen op je router
-
-Forward deze poorten naar het lokale IP-adres van je Raspberry Pi:
-
-- TCP `80`
-- TCP `443`
-
-Zorg dat je Pi een vast lokaal IP-adres heeft via DHCP reservation of statische configuratie.
-
-### Stap 6: Environment file maken
+### Stap 5: Environment file maken
 
 Maak de productieconfiguratie aan:
 
@@ -97,9 +94,10 @@ POSTGRES_PASSWORD=kies-een-sterk-wachtwoord
 APP_BOOTSTRAP_ENABLED=false
 APP_CORS_ALLOWED_ORIGINS=https://onsinventory.com,https://www.onsinventory.com
 VITE_API_BASE_URL=https://api.onsinventory.com
+CLOUDFLARE_TUNNEL_TOKEN=<token-uit-stap-4>
 ```
 
-### Stap 7: Caddy domeinen controleren
+### Stap 6: Caddy domeinen controleren
 
 De reverse proxy configuratie staat in `deploy/Caddyfile`.
 
@@ -108,34 +106,37 @@ Standaard:
 - `onsinventory.com` en `www.onsinventory.com` gaan naar de frontend
 - `api.onsinventory.com` gaat naar de backend
 
-Als je andere domeinen wilt gebruiken, pas dan zowel `deploy/Caddyfile` als `.env.pi` aan.
+Caddy luistert hier alleen intern op poort 80 (plain HTTP) - TLS wordt afgehandeld door Cloudflare aan de rand van hun netwerk, niet door Caddy zelf. Als je andere domeinen wilt gebruiken, pas dan zowel `deploy/Caddyfile` als de Public Hostnames in de Cloudflare Tunnel (Stap 4) als `.env.pi` aan.
 
-### Stap 8: Applicatie starten
+### Stap 7: Applicatie starten
 
-Start alles vanaf `backend/`:
+Start alles vanaf `backend/`. We sluiten `docker-compose.override.yml` hier bewust uit met `-f docker-compose.yml -f docker-compose.cloudflare.yml`, want dat bestand is alleen voor lokale ontwikkeling (het zet o.a. `APP_SECURITY_ENABLED` uit) en zou anders ook in productie meegenomen worden:
 
 ```bash
-docker compose --env-file .env.pi up -d --build
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi up -d --build
 ```
 
 Controleer of alles draait:
 
 ```bash
-docker compose --env-file .env.pi ps
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi ps
 ```
 
-### Stap 9: Logs controleren
+### Stap 8: Logs controleren
 
 Bekijk logs als iets niet werkt:
 
 ```bash
-docker compose --env-file .env.pi logs -f caddy
-docker compose --env-file .env.pi logs -f onsinventory-backend
-docker compose --env-file .env.pi logs -f onsinventory-frontend
-docker compose --env-file .env.pi logs -f postgres
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f cloudflared
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f caddy
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f onsinventory-backend
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f onsinventory-frontend
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f postgres
 ```
 
-### Stap 10: Deployment valideren
+De `cloudflared` logs tonen of de tunnel verbonden is met Cloudflare - dat is het eerste om te checken als de site extern niet bereikbaar is.
+
+### Stap 9: Deployment valideren
 
 Controleer lokaal op de Pi:
 
@@ -143,13 +144,15 @@ Controleer lokaal op de Pi:
 curl http://localhost:8080/actuator/health
 ```
 
-Controleer daarna extern:
+Controleer daarna extern (bijv. vanaf je telefoon op mobiele data, niet op hetzelfde wifi):
 
 - `https://onsinventory.com`
 - `https://www.onsinventory.com`
 - `https://api.onsinventory.com/actuator/health`
 
-### Stap 11: Updates uitrollen
+Ook op de Cloudflare Zero Trust dashboard (Networks → Tunnels) zie je de tunnel als "Healthy" staan zodra `cloudflared` verbonden is.
+
+### Stap 10: Updates uitrollen
 
 Bij handmatige updates:
 
@@ -157,74 +160,51 @@ Bij handmatige updates:
 cd ~/apps/onsinventory
 git pull
 cd backend
-docker compose --env-file .env.pi up -d --build
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi up -d --build
 ```
 
-### Stap 12: Automatische deploy via GitHub Actions instellen
+### Stap 11: Automatische deploy via GitHub Actions instellen
 
 De workflow staat in:
 
 - `.github/workflows/deploy-to-pi.yml`
 
+Deze workflow draait op een self-hosted GitHub Actions runner die je zelf op de Pi installeert (GitHub repository → **Settings → Actions → Runners → New self-hosted runner**, volg de instructies daar). De runner haalt jobs op via een uitgaande verbinding naar GitHub - net als `cloudflared` hoeft er dus niets inbound bereikbaar te zijn.
+
 Deze workflow:
 
 - draait backend tests
 - draait frontend tests
-- synchroniseert de repository naar de Pi via SSH
-- voert daarna `docker compose up -d --build` uit op de Pi
+- schrijft `.env.pi` met de secrets hieronder
+- voert daarna `docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml up -d --build` uit op de Pi
 
 #### GitHub secrets die je moet toevoegen
 
 Voeg in GitHub repository settings deze secrets toe:
 
-- `PI_HOST`
-- `PI_USER`
-- `PI_APP_PATH`
-- `PI_SSH_PRIVATE_KEY`
 - `POSTGRES_DB`
 - `POSTGRES_USER`
 - `POSTGRES_PASSWORD`
 - `APP_BOOTSTRAP_ENABLED`
 - `APP_CORS_ALLOWED_ORIGINS`
 - `VITE_API_BASE_URL`
+- `CLOUDFLARE_TUNNEL_TOKEN`
 
 #### Betekenis van de secrets
 
 Voorbeeldwaarden:
 
 ```text
-PI_HOST=203.0.113.10
-PI_USER=pi
-PI_APP_PATH=/home/pi/apps/onsinventory
 POSTGRES_DB=inventorydb
 POSTGRES_USER=inventory_user
 POSTGRES_PASSWORD=<strong-password>
 APP_BOOTSTRAP_ENABLED=false
 APP_CORS_ALLOWED_ORIGINS=https://onsinventory.com,https://www.onsinventory.com
 VITE_API_BASE_URL=https://api.onsinventory.com
+CLOUDFLARE_TUNNEL_TOKEN=<token-uit-de-cloudflare-zero-trust-dashboard>
 ```
 
-#### SSH key voor GitHub Actions
-
-Maak op je eigen machine een deploy key pair:
-
-```bash
-ssh-keygen -t ed25519 -C "github-actions-pi-deploy" -f ~/.ssh/github_actions_pi
-```
-
-Voeg daarna de public key toe aan `~/.ssh/authorized_keys` op de Pi.
-
-Voorbeeld:
-
-```bash
-cat ~/.ssh/github_actions_pi.pub | ssh pi@<PI_HOST> 'mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys'
-```
-
-Zet de private key als GitHub secret in:
-
-- `PI_SSH_PRIVATE_KEY`
-
-### Stap 13: Eerste automatische deploy testen
+### Stap 12: Eerste automatische deploy testen
 
 Merge een wijziging naar `main` of start de workflow handmatig via GitHub Actions.
 
@@ -232,7 +212,7 @@ Daarna kun je op de Pi controleren:
 
 ```bash
 cd ~/apps/onsinventory/backend
-docker compose --env-file .env.pi ps
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi ps
 ```
 
 ## Local Development (H2 Database)
@@ -315,39 +295,41 @@ curl -I https://onsinventory.com
 ## Monitoring & Logs
 
 ```bash
-docker compose --env-file .env.pi logs -f caddy
-docker compose --env-file .env.pi logs -f onsinventory-backend
-docker compose --env-file .env.pi logs -f onsinventory-frontend
-docker compose --env-file .env.pi logs -f postgres
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f cloudflared
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f caddy
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f onsinventory-backend
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f onsinventory-frontend
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f postgres
 ```
 
 ---
 
 ## Troubleshooting
 
-### HTTPS certificate wordt niet uitgegeven
+### Site is extern niet bereikbaar
 
 Controleer:
 
-- DNS records wijzen naar je publieke IP
-- poort `80` en `443` staan open
-- je router forwardt naar de Pi
-- Caddy logs bevatten geen ACME errors
+- de tunnel staat op "Healthy" in de Cloudflare Zero Trust dashboard (Networks → Tunnels)
+- `cloudflared` logs bevatten geen verbindingsfouten
+- de Public Hostnames in de tunnel wijzen naar `http://caddy:80`
+- `CLOUDFLARE_TUNNEL_TOKEN` in `.env.pi` is correct en niet verlopen/ingetrokken
 
 ```bash
-docker compose --env-file .env.pi logs -f caddy
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f cloudflared
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f caddy
 ```
 
 ### Backend start niet
 
 ```bash
-docker compose --env-file .env.pi logs -f onsinventory-backend
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f onsinventory-backend
 ```
 
 Controleer ook of PostgreSQL gezond is:
 
 ```bash
-docker compose --env-file .env.pi ps
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi ps
 ```
 
 ### Frontend kan API niet bereiken
@@ -355,20 +337,20 @@ docker compose --env-file .env.pi ps
 Controleer:
 
 - `VITE_API_BASE_URL` in `.env.pi`
-- `api.onsinventory.com` in `deploy/Caddyfile`
+- `api.onsinventory.com` in `deploy/Caddyfile` en in de Cloudflare Tunnel Public Hostnames
 - `APP_CORS_ALLOWED_ORIGINS` bevat je frontend domeinen
 
 Rebuild daarna:
 
 ```bash
-docker compose --env-file .env.pi up -d --build
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi up -d --build
 ```
 
 ### Database connection failed
 
 ```bash
-docker compose --env-file .env.pi logs -f postgres
-docker compose --env-file .env.pi logs -f onsinventory-backend
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f postgres
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f onsinventory-backend
 ```
 
 ### Nieuwe code wordt niet uitgerold via GitHub Actions
@@ -376,9 +358,8 @@ docker compose --env-file .env.pi logs -f onsinventory-backend
 Controleer:
 
 - GitHub Actions run output
-- SSH toegang vanaf GitHub Actions
-- juiste waarde van `PI_APP_PATH`
-- of Docker beschikbaar is voor de `PI_USER`
+- of de self-hosted runner op de Pi actief is (repository → Settings → Actions → Runners)
+- of Docker beschikbaar is voor de gebruiker waaronder de runner draait
 
 ---
 

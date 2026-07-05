@@ -1,0 +1,11 @@
+.git/
+.idea/
+*.iml
+**/node_modules/
+**/target/
+**/dist/
+backend/.env
+backend/.env.pi.example
+frontend/.env
+frontend/.env.example
+**/*.md
