@@ -221,10 +221,20 @@ export function deleteAccount(password: string) {
   });
 }
 
+type HouseholdResponse = {
+  name: string;
+  members: { username: string; firstName: string; lastName: string }[];
+};
+
 export function getHousehold() {
-  return request<{ name: string; members: { username: string; firstName: string; lastName: string }[] }>(
-    "/api/household"
-  );
+  return request<HouseholdResponse>("/api/household");
+}
+
+export function renameHousehold(name: string) {
+  return request<HouseholdResponse>("/api/household", {
+    method: "PUT",
+    body: JSON.stringify({ name })
+  });
 }
 
 export function inviteToHousehold(email: string) {

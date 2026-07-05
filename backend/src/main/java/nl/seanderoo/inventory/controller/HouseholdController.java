@@ -4,6 +4,8 @@ import nl.seanderoo.inventory.dto.HouseholdDTO;
 import nl.seanderoo.inventory.dto.HouseholdInvitePreviewDTO;
 import nl.seanderoo.inventory.dto.HouseholdMemberDTO;
 import nl.seanderoo.inventory.dto.InviteRequestDTO;
+import nl.seanderoo.inventory.dto.RenameHouseholdRequestDTO;
+import nl.seanderoo.inventory.model.Household;
 import nl.seanderoo.inventory.model.HouseholdInvite;
 import nl.seanderoo.inventory.model.User;
 import nl.seanderoo.inventory.repository.UserRepository;
@@ -29,10 +31,15 @@ public class HouseholdController {
 
     @GetMapping
     public ResponseEntity<HouseholdDTO> getCurrentHousehold(@AuthenticationPrincipal User user) {
-        List<HouseholdMemberDTO> members = userRepository.findByHouseholdId(user.getHousehold().getId()).stream()
-                .map(u -> new HouseholdMemberDTO(u.getUsername(), u.getFirstName(), u.getLastName()))
-                .toList();
-        return ResponseEntity.ok(new HouseholdDTO(user.getHousehold().getName(), members));
+        return ResponseEntity.ok(toDTO(user.getHousehold()));
+    }
+
+    @PutMapping
+    public ResponseEntity<HouseholdDTO> renameHousehold(
+            @AuthenticationPrincipal User user,
+            @RequestBody RenameHouseholdRequestDTO request) {
+        Household updated = householdService.renameHousehold(user.getHousehold(), request.getName());
+        return ResponseEntity.ok(toDTO(updated));
     }
 
     @PostMapping("/invite")
@@ -45,5 +52,12 @@ public class HouseholdController {
     public ResponseEntity<HouseholdInvitePreviewDTO> previewInvite(@PathVariable String token) {
         HouseholdInvite invite = householdService.getValidInvite(token);
         return ResponseEntity.ok(new HouseholdInvitePreviewDTO(invite.getHousehold().getName(), invite.getEmail()));
+    }
+
+    private HouseholdDTO toDTO(Household household) {
+        List<HouseholdMemberDTO> members = userRepository.findByHouseholdId(household.getId()).stream()
+                .map(u -> new HouseholdMemberDTO(u.getUsername(), u.getFirstName(), u.getLastName()))
+                .toList();
+        return new HouseholdDTO(household.getName(), members);
     }
 }

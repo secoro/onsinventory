@@ -89,6 +89,14 @@ public class HouseholdService {
         householdInviteRepository.save(invite);
     }
 
+    public Household renameHousehold(Household household, String newName) {
+        if (newName == null || newName.isBlank()) {
+            throw new BadRequestException("Household name is required");
+        }
+        household.setName(newName.trim());
+        return householdRepository.save(household);
+    }
+
     /**
      * Wipes everything that belongs to a household - inventory, recipes (and their
      * ingredients, via JPA cascade), locations, and pending invites - before removing
