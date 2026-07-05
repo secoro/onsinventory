@@ -214,6 +214,13 @@ export function changePassword(currentPassword: string, newPassword: string) {
   });
 }
 
+export function deleteAccount(password: string) {
+  return request<void>("/api/auth/account", {
+    method: "DELETE",
+    body: JSON.stringify({ password })
+  });
+}
+
 export function getHousehold() {
   return request<{ name: string; members: { username: string; firstName: string; lastName: string }[] }>(
     "/api/household"

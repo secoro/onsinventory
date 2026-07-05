@@ -1,6 +1,7 @@
 package nl.seanderoo.inventory.controller;
 
 import nl.seanderoo.inventory.dto.ChangePasswordDTO;
+import nl.seanderoo.inventory.dto.DeleteAccountRequestDTO;
 import nl.seanderoo.inventory.dto.ForgotPasswordRequestDTO;
 import nl.seanderoo.inventory.dto.LoginRequestDTO;
 import nl.seanderoo.inventory.dto.LoginResponseDTO;
@@ -83,6 +84,14 @@ public class AuthController {
             @RequestBody ChangePasswordDTO request,
             @AuthenticationPrincipal UserDetails userDetails) {
         userService.changePassword(userDetails.getUsername(), request.getCurrentPassword(), request.getNewPassword());
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/account")
+    public ResponseEntity<Void> deleteAccount(
+            @RequestBody DeleteAccountRequestDTO request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        userService.deleteAccount(userDetails.getUsername(), request.getPassword());
         return ResponseEntity.noContent().build();
     }
 

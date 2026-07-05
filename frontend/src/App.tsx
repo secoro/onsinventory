@@ -30,6 +30,7 @@ import {
   checkRecipeAvailability,
   clearToken,
   cookRecipe,
+  deleteAccount,
   deleteInventoryItem,
   deleteRecipe,
   forgotPassword,
@@ -116,6 +117,7 @@ export default function App() {
   const [dark, setDark] = useState<boolean>(() => localStorage.getItem("theme") !== "light");
   const [skippedIngredients, setSkippedIngredients] = useState<Set<string>>(new Set());
   const [showInviteHousehold, setShowInviteHousehold] = useState(false);
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
 
   const [urlAuthState] = useState(() => {
     const path = window.location.pathname;
@@ -213,6 +215,14 @@ export default function App() {
     setAuthUser(null);
     queryClient.clear();
   };
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: (password: string) => deleteAccount(password),
+    onSuccess: () => {
+      setShowDeleteAccount(false);
+      handleLogout();
+    }
+  });
 
   const locationsQuery = useQuery({
     queryKey: ["locations"],
@@ -577,6 +587,14 @@ export default function App() {
                 >
                   <LogOut className="h-3.5 w-3.5" />
                   Logout
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteAccount(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 dark:border-rose-800 px-3 py-1.5 text-sm text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete account
                 </button>
               </div>
               <div className="rounded-xl bg-brand-100 dark:bg-brand-600/20 px-4 py-3 text-sm text-brand-800 dark:text-brand-50">
@@ -1277,6 +1295,15 @@ export default function App() {
           isSuccess={inviteMutation.isSuccess}
         />
       )}
+
+      {showDeleteAccount && (
+        <DeleteAccountModal
+          onClose={() => { setShowDeleteAccount(false); deleteAccountMutation.reset(); }}
+          onSubmit={(password) => deleteAccountMutation.mutate(password)}
+          isPending={deleteAccountMutation.isPending}
+          error={deleteAccountMutation.isError ? deleteAccountMutation.error.message : null}
+        />
+      )}
     </div>
   );
 }
@@ -1433,10 +1460,10 @@ function RegisterPage({
     e.preventDefault();
     if (mismatch) return;
     onRegister({
-      username,
-      email,
-      firstName,
-      lastName,
+      username: username.trim(),
+      email: email.trim(),
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
       password,
       inviteToken: inviteToken ?? undefined
     });
@@ -1483,7 +1510,9 @@ function RegisterPage({
         />
         <input
           required
-          type="email"
+          type="text"
+          inputMode="email"
+          autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className={authInputClass}
@@ -1537,7 +1566,7 @@ function ForgotPasswordPage({
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    onSubmit(email);
+    onSubmit(email.trim());
   };
 
   return (
@@ -1554,7 +1583,9 @@ function ForgotPasswordPage({
           <input
             required
             autoFocus
-            type="email"
+            type="text"
+            inputMode="email"
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className={authInputClass}
@@ -1666,7 +1697,7 @@ function InviteHouseholdModal({
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    onSubmit(email);
+    onSubmit(email.trim());
   };
 
   return (
@@ -1695,7 +1726,9 @@ function InviteHouseholdModal({
             <input
               ref={inputRef}
               required
-              type="email"
+              type="text"
+              inputMode="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className={authInputClass}
@@ -1720,6 +1753,86 @@ function InviteHouseholdModal({
             </div>
           </form>
         )}
+      </div>
+    </div>
+  );
+}
+
+function DeleteAccountModal({
+  onClose,
+  onSubmit,
+  isPending,
+  error
+}: {
+  onClose: () => void;
+  onSubmit: (password: string) => void;
+  isPending: boolean;
+  error: string | null;
+}) {
+  const [password, setPassword] = useState("");
+  const [confirmText, setConfirmText] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const canSubmit = confirmText.trim().toUpperCase() === "DELETE" && password.length > 0;
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!canSubmit) return;
+    onSubmit(password);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-slate-950/80 p-4">
+      <div className="w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6">
+        <h3 className="flex items-center gap-2 text-lg font-semibold text-rose-600 dark:text-rose-300">
+          <Trash2 className="h-4 w-4" />
+          Delete account
+        </h3>
+        <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+          This permanently deletes your account. If you're the only member of your household,
+          its inventory, recipes, and locations are permanently deleted too — this cannot be undone.
+        </p>
+        <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
+          <input
+            ref={inputRef}
+            required
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className={authInputClass}
+            placeholder="Current password"
+          />
+          <div>
+            <label className="text-sm text-slate-600 dark:text-slate-300">
+              Type <span className="font-semibold">DELETE</span> to confirm
+            </label>
+            <input
+              required
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              className={`${authInputClass} mt-1 w-full`}
+              placeholder="DELETE"
+            />
+          </div>
+          {error && <p className="text-sm text-rose-600 dark:text-rose-300">{error}</p>}
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isPending || !canSubmit}
+              className="flex-1 rounded-lg bg-rose-600 px-4 py-2 font-medium text-white hover:bg-rose-500 disabled:opacity-50"
+            >
+              {isPending ? "Deleting..." : "Delete my account"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

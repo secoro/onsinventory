@@ -8,7 +8,9 @@ import nl.seanderoo.inventory.model.Location;
 import nl.seanderoo.inventory.model.User;
 import nl.seanderoo.inventory.repository.HouseholdInviteRepository;
 import nl.seanderoo.inventory.repository.HouseholdRepository;
+import nl.seanderoo.inventory.repository.InventoryItemRepository;
 import nl.seanderoo.inventory.repository.LocationRepository;
+import nl.seanderoo.inventory.repository.RecipeRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,15 +26,21 @@ public class HouseholdService {
     private final HouseholdRepository householdRepository;
     private final HouseholdInviteRepository householdInviteRepository;
     private final LocationRepository locationRepository;
+    private final InventoryItemRepository inventoryItemRepository;
+    private final RecipeRepository recipeRepository;
     private final EmailService emailService;
 
     public HouseholdService(HouseholdRepository householdRepository,
                              HouseholdInviteRepository householdInviteRepository,
                              LocationRepository locationRepository,
+                             InventoryItemRepository inventoryItemRepository,
+                             RecipeRepository recipeRepository,
                              EmailService emailService) {
         this.householdRepository = householdRepository;
         this.householdInviteRepository = householdInviteRepository;
         this.locationRepository = locationRepository;
+        this.inventoryItemRepository = inventoryItemRepository;
+        this.recipeRepository = recipeRepository;
         this.emailService = emailService;
     }
 
@@ -79,5 +87,18 @@ public class HouseholdService {
     public void markAccepted(HouseholdInvite invite) {
         invite.setAcceptedAt(LocalDateTime.now());
         householdInviteRepository.save(invite);
+    }
+
+    /**
+     * Wipes everything that belongs to a household - inventory, recipes (and their
+     * ingredients, via JPA cascade), locations, and pending invites - before removing
+     * the household itself. Only call this once the last member has been removed.
+     */
+    public void deleteHouseholdAndData(Household household) {
+        inventoryItemRepository.deleteAll(inventoryItemRepository.findByHouseholdId(household.getId()));
+        recipeRepository.deleteAll(recipeRepository.findAllByHouseholdId(household.getId()));
+        locationRepository.deleteAll(locationRepository.findAllByHouseholdId(household.getId()));
+        householdInviteRepository.deleteAll(householdInviteRepository.findAllByHouseholdId(household.getId()));
+        householdRepository.delete(household);
     }
 }

@@ -125,6 +125,24 @@ public class UserService implements UserDetailsService {
         // so callers can't use response behavior to enumerate registered accounts.
     }
 
+    public void deleteAccount(String username, String password) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new BadRequestException("Password is incorrect");
+        }
+
+        Household household = user.getHousehold();
+
+        passwordResetTokenRepository.deleteAll(passwordResetTokenRepository.findAllByUserId(user.getId()));
+        userRepository.delete(user);
+
+        boolean householdStillHasMembers = !userRepository.findByHouseholdId(household.getId()).isEmpty();
+        if (!householdStillHasMembers) {
+            householdService.deleteHouseholdAndData(household);
+        }
+    }
+
     public void resetPassword(String token, String newPassword) {
         if (newPassword == null || newPassword.length() < MIN_PASSWORD_LENGTH) {
             throw new BadRequestException("Password must be at least " + MIN_PASSWORD_LENGTH + " characters");
