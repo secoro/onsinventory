@@ -360,7 +360,7 @@ MIT
 
 Deze repository bevat nu ook een self-hosted productie-opzet voor Raspberry Pi met:
 
-- `backend/docker-compose.yml` voor PostgreSQL, backend, frontend en Caddy
+- `backend/docker-compose.yml` voor PostgreSQL, backend en frontend
 - `backend/docker-compose.cloudflare.yml` voor de `cloudflared` tunnel container
 - TLS termination via Cloudflare (geen Let's Encrypt/poorten nodig op de Pi zelf)
 - frontend op `https://onsinventory.com`
@@ -399,37 +399,6 @@ Voeg deze repository secrets toe:
 - `CLOUDFLARE_TUNNEL_TOKEN`
 
 Na elke merge naar `main` draait `.github/workflows/deploy-to-pi.yml` automatisch tests en daarna een redeploy op de Raspberry Pi via de self-hosted runner.
-
-````
-This is the description of what the code block changes:
-<changeDescription>
-Rename documented jar commands to match the new Maven artifact name.
-</changeDescription>
-
-This is the code block that represents the suggested code change:
-````markdown
-# 🍳 OnsInventory Backend
-
-...existing code...
-### JAR starten
-
-```bash
-java -jar target/onsinventory-backend-1.0.0.jar
-```
-
-...existing code...
-```bash
-SPRING_DATASOURCE_URL='jdbc:postgresql://localhost:5432/inventorydb' \
-SPRING_DATASOURCE_USERNAME='inventory_user' \
-SPRING_DATASOURCE_PASSWORD='inventory_password' \
-java -jar target/onsinventory-backend-1.0.0.jar --spring.profiles.active=prod
-```
-
-...existing code...
-````
-<userPrompt>
-Provide the fully rewritten file, incorporating the suggested code change. You must produce the complete file.
-</userPrompt>
 
 ---
 Happy coding!

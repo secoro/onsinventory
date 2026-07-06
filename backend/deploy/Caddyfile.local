@@ -1,8 +1,0 @@
-:80 {
-    handle /api/* {
-        reverse_proxy onsinventory-backend:8080
-    }
-    handle {
-        reverse_proxy onsinventory-frontend:8081
-    }
-}

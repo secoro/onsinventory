@@ -1,22 +1,21 @@
 # 🚀 Deployment Guide
 
-Gids voor het deployen van OnsInventory. De aanbevolen productie-opzet voor deze repository is nu een self-hosted Raspberry Pi deployment met Docker Compose, PostgreSQL, frontend, backend, Caddy en een Cloudflare Tunnel.
+Gids voor het deployen van OnsInventory. De aanbevolen productie-opzet voor deze repository is nu een self-hosted Raspberry Pi deployment met Docker Compose, PostgreSQL, frontend, backend en een Cloudflare Tunnel.
 
 ## Raspberry Pi Deployment (Recommended)
 
 ### Architectuur
 
-De productie-opzet bestaat uit vijf containers:
+De productie-opzet bestaat uit vier containers:
 
 - `cloudflared` voor de uitgaande tunnel naar Cloudflare (geen inbound poorten nodig)
-- `caddy` voor interne reverse proxy routing op basis van hostname
 - `onsinventory-frontend` voor de React/Vite frontend
 - `onsinventory-backend` voor de Spring Boot API
 - `postgres` voor persistente data
 
 Verkeer loopt als volgt:
 
-- bezoeker → Cloudflare edge (TLS termination hier) → Cloudflare Tunnel (uitgaand vanaf de Pi, dus geen open poorten op de router) → `caddy` → `onsinventory-frontend` of `onsinventory-backend`
+- bezoeker → Cloudflare edge (TLS termination hier) → Cloudflare Tunnel (uitgaand vanaf de Pi, dus geen open poorten op de router) → rechtstreeks naar `onsinventory-frontend` of `onsinventory-backend`, op basis van de hostname-routing in de tunnel zelf (Public Hostnames, zie Stap 4)
 - `onsinventory.com` → frontend
 - `www.onsinventory.com` → frontend
 - `api.onsinventory.com` → backend
@@ -70,12 +69,12 @@ cd onsinventory/backend
 1. Koop het domein (bijv. via [Cloudflare Registrar](https://developers.cloudflare.com/registrar/)) - dit zet de nameservers meteen op Cloudflare, geen aparte migratie nodig. Kocht je elders? Voeg de site toe in het Cloudflare dashboard en wijzig de nameservers bij je registrar.
 2. Ga naar de [Cloudflare Zero Trust dashboard](https://one.dash.cloudflare.com/) → **Networks → Tunnels → Create a tunnel**.
 3. Kies connector type **Cloudflared**, geef de tunnel een naam (bijv. `onsinventory-pi`) en kopieer de tunnel token die je te zien krijgt - deze heb je nodig in Stap 5.
-4. Voeg onder **Public Hostnames** drie routes toe, allemaal wijzend naar dezelfde interne service `http://caddy:80`:
-   - `onsinventory.com`
-   - `www.onsinventory.com`
-   - `api.onsinventory.com`
+4. Voeg onder **Public Hostnames** drie routes toe, elk wijzend naar de bijbehorende interne service:
+   - `onsinventory.com` → `http://onsinventory-frontend:8081`
+   - `www.onsinventory.com` → `http://onsinventory-frontend:8081`
+   - `api.onsinventory.com` → `http://onsinventory-backend:8080`
 
-   Cloudflare maakt hierbij automatisch de bijbehorende DNS-records aan - er is geen handmatige DNS- of poort-forwarding stap nodig, en je hoeft niets aan de router te wijzigen.
+   Cloudflare maakt hierbij automatisch de bijbehorende DNS-records aan - er is geen handmatige DNS- of poort-forwarding stap nodig, en je hoeft niets aan de router te wijzigen. TLS wordt afgehandeld door Cloudflare aan de rand van hun netwerk; de containers zelf luisteren alleen intern op plain HTTP. Als je andere domeinen wilt gebruiken, pas dan zowel de Public Hostnames hier als `APP_CORS_ALLOWED_ORIGINS`/`VITE_API_BASE_URL` in `.env.pi` aan.
 
 ### Stap 5: Environment file maken
 
@@ -106,18 +105,7 @@ als domein in het Resend dashboard - dat voegt een paar DNS-records toe die je d
 Cloudflare DNS kunt zetten (het domein staat daar al). Zonder geldige `RESEND_API_KEY`
 falen deze e-mails stil (gelogd als warning) - de rest van de app blijft gewoon werken.
 
-### Stap 6: Caddy domeinen controleren
-
-De reverse proxy configuratie staat in `deploy/Caddyfile`.
-
-Standaard:
-
-- `onsinventory.com` en `www.onsinventory.com` gaan naar de frontend
-- `api.onsinventory.com` gaat naar de backend
-
-Caddy luistert hier alleen intern op poort 80 (plain HTTP) - TLS wordt afgehandeld door Cloudflare aan de rand van hun netwerk, niet door Caddy zelf. Als je andere domeinen wilt gebruiken, pas dan zowel `deploy/Caddyfile` als de Public Hostnames in de Cloudflare Tunnel (Stap 4) als `.env.pi` aan.
-
-### Stap 7: Applicatie starten
+### Stap 6: Applicatie starten
 
 Start alles vanaf `backend/`. We sluiten `docker-compose.override.yml` hier bewust uit met `-f docker-compose.yml -f docker-compose.cloudflare.yml`, want dat bestand is alleen voor lokale ontwikkeling (het zet o.a. `APP_SECURITY_ENABLED` uit) en zou anders ook in productie meegenomen worden:
 
@@ -131,13 +119,12 @@ Controleer of alles draait:
 docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi ps
 ```
 
-### Stap 8: Logs controleren
+### Stap 7: Logs controleren
 
 Bekijk logs als iets niet werkt:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f cloudflared
-docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f caddy
 docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f onsinventory-backend
 docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f onsinventory-frontend
 docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f postgres
@@ -145,7 +132,7 @@ docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file
 
 De `cloudflared` logs tonen of de tunnel verbonden is met Cloudflare - dat is het eerste om te checken als de site extern niet bereikbaar is.
 
-### Stap 9: Deployment valideren
+### Stap 8: Deployment valideren
 
 Controleer lokaal op de Pi:
 
@@ -161,7 +148,7 @@ Controleer daarna extern (bijv. vanaf je telefoon op mobiele data, niet op hetze
 
 Ook op de Cloudflare Zero Trust dashboard (Networks → Tunnels) zie je de tunnel als "Healthy" staan zodra `cloudflared` verbonden is.
 
-### Stap 10: Updates uitrollen
+### Stap 9: Updates uitrollen
 
 Bij handmatige updates:
 
@@ -172,7 +159,7 @@ cd backend
 docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi up -d --build
 ```
 
-### Stap 11: Automatische deploy via GitHub Actions instellen
+### Stap 10: Automatische deploy via GitHub Actions instellen
 
 De workflow staat in:
 
@@ -219,7 +206,7 @@ APP_MAIL_FROM=onsinventory@onsinventory.com
 RESEND_API_KEY=<api-key-uit-resend-dashboard>
 ```
 
-### Stap 12: Eerste automatische deploy testen
+### Stap 11: Eerste automatische deploy testen
 
 Merge een wijziging naar `main` of start de workflow handmatig via GitHub Actions.
 
@@ -257,7 +244,7 @@ docker compose up -d --build
 
 Voor lokale frontend development gebruikt de frontend standaard:
 
-- `http://localhost:8080`
+- `http://localhost:8080` (backend rechtstreeks op `http://localhost:8081`)
 
 ### Stop en cleanup
 
@@ -311,7 +298,6 @@ curl -I https://onsinventory.com
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f cloudflared
-docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f caddy
 docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f onsinventory-backend
 docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f onsinventory-frontend
 docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f postgres
@@ -327,12 +313,11 @@ Controleer:
 
 - de tunnel staat op "Healthy" in de Cloudflare Zero Trust dashboard (Networks → Tunnels)
 - `cloudflared` logs bevatten geen verbindingsfouten
-- de Public Hostnames in de tunnel wijzen naar `http://caddy:80`
+- de Public Hostnames in de tunnel wijzen naar `http://onsinventory-frontend:8081` (voor `onsinventory.com`/`www`) en `http://onsinventory-backend:8080` (voor `api.onsinventory.com`)
 - `CLOUDFLARE_TUNNEL_TOKEN` in `.env.pi` is correct en niet verlopen/ingetrokken
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f cloudflared
-docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi logs -f caddy
 ```
 
 ### Backend start niet
@@ -352,7 +337,7 @@ docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file
 Controleer:
 
 - `VITE_API_BASE_URL` in `.env.pi`
-- `api.onsinventory.com` in `deploy/Caddyfile` en in de Cloudflare Tunnel Public Hostnames
+- `api.onsinventory.com` wijst in de Cloudflare Tunnel Public Hostnames naar `http://onsinventory-backend:8080`
 - `APP_CORS_ALLOWED_ORIGINS` bevat je frontend domeinen
 
 Rebuild daarna:

@@ -4,7 +4,9 @@ services:
     container_name: onsinventory-cloudflared
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN is required}
     depends_on:
-      caddy:
+      onsinventory-frontend:
+        condition: service_started
+      onsinventory-backend:
         condition: service_started
     networks:
       - onsinventory-network

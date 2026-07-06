@@ -1,20 +1,4 @@
 services:
-  caddy:
-    image: caddy:2-alpine
-    container_name: onsinventory-caddy
-    volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      onsinventory-frontend:
-        condition: service_started
-      onsinventory-backend:
-        condition: service_started
-    networks:
-      - onsinventory-network
-    restart: unless-stopped
-
   postgres:
     image: postgres:16-alpine
     container_name: onsinventory-postgres
@@ -70,10 +54,6 @@ services:
 
 volumes:
   postgres_data:
-    driver: local
-  caddy_data:
-    driver: local
-  caddy_config:
     driver: local
 
 networks:
