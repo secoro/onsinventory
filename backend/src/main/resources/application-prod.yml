@@ -57,6 +57,6 @@ app:
     expiration: 604800000
   frontend-url: ${APP_FRONTEND_URL:https://onsinventory.com}
   mail:
-    from: ${APP_MAIL_FROM:onsinventory@onsinventory.com}
+    from: ${APP_MAIL_FROM:noreply@onsinventory.com}
   resend:
     api-key: ${RESEND_API_KEY:}
