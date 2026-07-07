@@ -1,6 +1,11 @@
 spring:
   application:
     name: onsinventory
+  jackson:
+    deserialization:
+      # Jackson 3 default rejects requests that omit primitive DTO fields
+      # (e.g. POST /api/inventory without "expired"); keep the Jackson 2 behavior
+      fail-on-null-for-primitives: false
   jpa:
     hibernate:
       ddl-auto: validate
