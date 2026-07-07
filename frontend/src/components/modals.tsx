@@ -1,6 +1,6 @@
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Mail, MessageSquare, Trash2 } from "lucide-react";
+import { Info, Mail, MessageSquare, Trash2 } from "lucide-react";
 import { changePassword, deleteAccount, inviteToHousehold, sendFeedback } from "../api/client";
 import { inputClass } from "../lib/ui";
 
@@ -87,6 +87,33 @@ export function InviteHouseholdModal({ onClose }: { onClose: () => void }) {
           </div>
         </form>
       )}
+    </ModalShell>
+  );
+}
+
+export function AboutModal({ onClose }: { onClose: () => void }) {
+  return (
+    <ModalShell>
+      <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
+        <Info className="h-4 w-4" />
+        About
+      </h3>
+      <div className="mt-4 flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3">
+        <div>
+          <p className="font-medium text-slate-900 dark:text-white">OnsInventory</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Pantry, fridge &amp; freezer tracking</p>
+        </div>
+        <span className="rounded-lg bg-brand-100 dark:bg-brand-600/20 px-3 py-1 text-sm font-semibold text-brand-800 dark:text-brand-50">
+          v{__APP_VERSION__}
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={onClose}
+        className="mt-4 w-full rounded-lg bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500"
+      >
+        Close
+      </button>
     </ModalShell>
   );
 }

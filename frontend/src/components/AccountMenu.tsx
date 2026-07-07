@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { KeyRound, LogOut, Menu, MessageSquare, Moon, Sun, Trash2, UserPlus, X } from "lucide-react";
+import { Info, KeyRound, LogOut, Menu, MessageSquare, Moon, Sun, Trash2, UserPlus, X } from "lucide-react";
 
 export default function AccountMenu({
   dark,
@@ -7,6 +7,7 @@ export default function AccountMenu({
   onInvite,
   onChangePassword,
   onFeedback,
+  onAbout,
   onLogout,
   onDeleteAccount
 }: {
@@ -15,6 +16,7 @@ export default function AccountMenu({
   onInvite: () => void;
   onChangePassword: () => void;
   onFeedback: () => void;
+  onAbout: () => void;
   onLogout: () => void;
   onDeleteAccount: () => void;
 }) {
@@ -75,6 +77,10 @@ export default function AccountMenu({
           <button type="button" onClick={select(onFeedback)} className={itemClass}>
             <MessageSquare className="h-3.5 w-3.5" />
             Send feedback
+          </button>
+          <button type="button" onClick={select(onAbout)} className={itemClass}>
+            <Info className="h-3.5 w-3.5" />
+            About
           </button>
           <button type="button" onClick={select(onLogout)} className={itemClass}>
             <LogOut className="h-3.5 w-3.5" />
