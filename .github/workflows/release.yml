@@ -1,0 +1,73 @@
+name: Release
+
+# When a PR merges into main, the branch prefix decides the version bump:
+#   breaking/<story>-...  -> major (2.3.1 -> 3.0.0)
+#   feature/<story>-...   -> minor (2.3.1 -> 2.4.0)
+#   bug/<story>-...       -> patch (2.3.1 -> 2.3.2)
+# Any other prefix (chore/, docs/, ...) merges without a release or deploy.
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    outputs:
+      released: ${{ steps.version.outputs.released }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+
+      - name: Create release with bumped version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          TARGET: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          case "$BRANCH" in
+            breaking/*) BUMP=major ;;
+            feature/*)  BUMP=minor ;;
+            bug/*)      BUMP=patch ;;
+            *)
+              echo "Branch '$BRANCH' has no release prefix (breaking/, feature/, bug/) - not releasing."
+              echo "released=false" >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+          esac
+
+          LAST=$(git tag --list 'v*' | sort -V | tail -1)
+          LAST=${LAST:-v1.0.0}
+          IFS=. read -r MAJOR MINOR PATCH <<< "${LAST#v}"
+          case "$BUMP" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+          esac
+          TAG="v$MAJOR.$MINOR.$PATCH"
+
+          echo "Releasing $TAG ($BUMP bump from $LAST, branch $BRANCH)"
+          gh release create "$TAG" --target "$TARGET" --title "$TAG" --generate-notes
+          echo "released=true" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+  # Releases created with the workflow's own token don't fire the `release`
+  # event (GitHub anti-recursion rule), so invoke the deploy workflow directly.
+  deploy:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      ref: ${{ needs.release.outputs.tag }}
+    secrets: inherit

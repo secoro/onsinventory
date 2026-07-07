@@ -159,20 +159,28 @@ cd backend
 docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi up -d --build
 ```
 
-### Stap 10: Automatische deploy via GitHub Actions instellen
+### Stap 10: CI/CD via GitHub Actions instellen
 
-De workflow staat in:
+Er zijn drie workflows in `.github/workflows/`:
 
-- `.github/workflows/deploy-to-pi.yml`
+| Workflow | Trigger | Wat het doet | Waar het draait |
+|----------|---------|--------------|-----------------|
+| `ci.yml` | pull request naar `main` (en push naar `main`) | backend tests + frontend lint/test/build, parallel | GitHub-hosted runners (snel, niet op de Pi) |
+| `release.yml` | PR gemerged naar `main` | bepaalt de versiebump uit de branchnaam, maakt een GitHub release en start de deploy | GitHub-hosted runner |
+| `deploy.yml` | release published (handmatig of via `release.yml`), of handmatig via de Actions-tab | schrijft `.env.pi` en voert `docker compose up -d --build` uit | self-hosted runner op de Pi |
 
-Deze workflow draait op een self-hosted GitHub Actions runner die je zelf op de Pi installeert (GitHub repository → **Settings → Actions → Runners → New self-hosted runner**, volg de instructies daar). De runner haalt jobs op via een uitgaande verbinding naar GitHub - net als `cloudflared` hoeft er dus niets inbound bereikbaar te zijn.
+**Branch-conventie voor de versiebump:**
 
-Deze workflow:
+```text
+bug/<story>-korte-omschrijving       -> patch  (1.2.3 -> 1.2.4)
+feature/<story>-korte-omschrijving   -> minor  (1.2.3 -> 1.3.0)
+breaking/<story>-korte-omschrijving  -> major  (1.2.3 -> 2.0.0)
+overige prefixes (chore/, docs/, …)  -> merge zonder release/deploy
+```
 
-- draait backend tests
-- draait frontend tests
-- schrijft `.env.pi` met de secrets hieronder
-- voert daarna `docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml up -d --build` uit op de Pi
+De flow: maak een feature branch → open een PR → `ci.yml` draait de tests → merge als alles groen is → `release.yml` maakt automatisch de release (bijv. `v1.3.0`) → `deploy.yml` rolt die release uit op de Pi. Een release die je zelf handmatig in GitHub aanmaakt triggert de deploy ook.
+
+De deploy-workflow draait op een self-hosted GitHub Actions runner die je zelf op de Pi installeert (GitHub repository → **Settings → Actions → Runners → New self-hosted runner**, volg de instructies daar). De runner haalt jobs op via een uitgaande verbinding naar GitHub - net als `cloudflared` hoeft er dus niets inbound bereikbaar te zijn. Omdat de tests al in de PR draaien, doet de Pi alleen nog `docker compose up -d --build` (met Docker layer caching voor de Maven dependencies) en ruimt daarna oude images op.
 
 #### GitHub secrets die je moet toevoegen
 
@@ -208,7 +216,9 @@ RESEND_API_KEY=<api-key-uit-resend-dashboard>
 
 ### Stap 11: Eerste automatische deploy testen
 
-Merge een wijziging naar `main` of start de workflow handmatig via GitHub Actions.
+Maak eenmalig een release `v1.0.0` aan in GitHub (repository → Releases → **Draft a new release**, tag `v1.0.0`, target `main`). Dat seedt de versienummering én triggert meteen de eerste deploy. Daarna gaat alles via branches: merge bijv. een `bug/...`-PR en `release.yml` maakt vanzelf `v1.0.1` aan en deployt die.
+
+Je kunt `deploy.yml` ook altijd handmatig starten via de Actions-tab (workflow_dispatch).
 
 Daarna kun je op de Pi controleren:
 
@@ -356,7 +366,8 @@ docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file
 
 Controleer:
 
-- GitHub Actions run output
+- of de gemergede branch een release-prefix had (`bug/`, `feature/`, `breaking/`) - andere prefixes maken geen release aan en deployen dus niet
+- de run output van `release.yml` en `deploy.yml` in de Actions-tab
 - of de self-hosted runner op de Pi actief is (repository → Settings → Actions → Runners)
 - of Docker beschikbaar is voor de gebruiker waaronder de runner draait
 

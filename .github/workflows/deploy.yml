@@ -1,47 +1,36 @@
 name: Deploy to Raspberry Pi
 
+# Runs when a release is published by hand, when the Release workflow calls it
+# after an automatic version bump, or on demand via the Actions tab.
+# Tests already gated the PR in CI, so this only builds and deploys.
 on:
-  push:
-    branches:
-      - main
+  release:
+    types:
+      - published
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref (tag) to deploy
+        required: false
+        type: string
 
 permissions:
   contents: read
 
-jobs:
-  test-and-deploy:
-    runs-on: self-hosted
+# Never run two deploys on the Pi at once; queue instead of cancel
+concurrency:
+  group: deploy-pi
+  cancel-in-progress: false
 
+jobs:
+  deploy:
+    runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: '25'
-          cache: maven
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Test backend
-        working-directory: backend
-        run: mvn -B test
-
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci
-
-      - name: Test frontend
-        working-directory: frontend
-        run: npm run test
+          ref: ${{ inputs.ref || github.ref }}
 
       - name: Write environment file
         working-directory: backend
@@ -59,8 +48,10 @@ jobs:
           RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
           EOF
 
-      - name: Deploy
+      - name: Build and deploy
         working-directory: backend
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi down
           docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi up -d --build
+
+      - name: Clean up old images
+        run: docker image prune -f

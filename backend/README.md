@@ -389,7 +389,13 @@ Voeg deze repository secrets toe:
 - `VITE_API_BASE_URL`
 - `CLOUDFLARE_TUNNEL_TOKEN`
 
-Na elke merge naar `main` draait `.github/workflows/deploy-to-pi.yml` automatisch tests en daarna een redeploy op de Raspberry Pi via de self-hosted runner.
+### CI/CD flow
+
+- **`ci.yml`** — draait bij elke pull request naar `main`: backend tests + frontend lint/test/build op GitHub-hosted runners.
+- **`release.yml`** — draait als een PR gemerged wordt en bepaalt de versiebump uit de branchnaam: `bug/…` → patch, `feature/…` → minor, `breaking/…` → major. Maakt de GitHub release aan en start de deploy. Andere prefixes mergen zonder release.
+- **`deploy.yml`** — draait bij elke gepubliceerde release (automatisch of handmatig aangemaakt) op de self-hosted runner op de Pi: `docker compose up -d --build`, zonder de tests te herhalen.
+
+Nieuwe feature? Branch `feature/<story>-omschrijving` → PR → merge als CI groen is → release + deploy gebeuren vanzelf.
 
 ---
 Happy coding!
