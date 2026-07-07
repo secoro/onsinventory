@@ -62,6 +62,9 @@ public class SecurityConfig {
                             ).permitAll()
                             .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/household/invite/*").permitAll()
                             .requestMatchers("/h2-console/**").permitAll()
+                            // The Docker healthcheck probes this; without permitAll the
+                            // container is permanently reported as unhealthy
+                            .requestMatchers("/actuator/health").permitAll()
                             .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                             .anyRequest().authenticated()
                     )
