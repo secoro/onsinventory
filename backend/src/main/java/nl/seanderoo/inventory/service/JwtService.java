@@ -1,5 +1,6 @@
 package nl.seanderoo.inventory.service;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,23 +30,21 @@ public class JwtService {
     }
 
     public String extractUsername(String token) {
+        return parse(token).getSubject();
+    }
+
+    public boolean isTokenValid(String token, UserDetails userDetails) {
+        Claims claims = parse(token);
+        return claims.getSubject().equals(userDetails.getUsername())
+                && claims.getExpiration().after(new Date());
+    }
+
+    private Claims parse(String token) {
         return Jwts.parser()
                 .verifyWith(signingKey())
                 .build()
                 .parseSignedClaims(token)
-                .getPayload()
-                .getSubject();
-    }
-
-    public boolean isTokenValid(String token, UserDetails userDetails) {
-        String username = extractUsername(token);
-        Date exp = Jwts.parser()
-                .verifyWith(signingKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload()
-                .getExpiration();
-        return username.equals(userDetails.getUsername()) && exp.after(new Date());
+                .getPayload();
     }
 
     private SecretKey signingKey() {

@@ -44,8 +44,6 @@ public class InventoryItem {
 
     private LocalDate addedDate;
 
-    private boolean expired;
-
     @Column(columnDefinition = "TEXT")
     private String notes;
 
@@ -60,19 +58,21 @@ public class InventoryItem {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
         addedDate = LocalDate.now();
-        expired = false;
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
-        expired = expiryDate != null && LocalDate.now().isAfter(expiryDate);
     }
 
-    public boolean isExpiredOrExpiringSoon() {
+    public boolean isExpired() {
+        return expiryDate != null && expiryDate.isBefore(LocalDate.now());
+    }
+
+    /** True from three days before the expiry date up to and including the date itself. */
+    public boolean isExpiringSoon() {
         if (expiryDate == null) return false;
         LocalDate today = LocalDate.now();
-        LocalDate soonThreshold = today.plusDays(3);
         return !today.isBefore(expiryDate.minusDays(3)) && !today.isAfter(expiryDate);
     }
 }

@@ -96,17 +96,17 @@ curl -X POST http://localhost:8080/api/recipes \
 Open http://localhost:8080/h2-console en voer SQL uit:
 
 ```sql
--- Add items
-INSERT INTO inventory_items (name, category, location_id, quantity, unit, expiry_date, added_date, expired, created_at, updated_at)
-VALUES ('Eggs', 'dairy', 2, 12, 'pieces', '2026-06-10', CURRENT_DATE, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+-- Add items (household_id 1 bestaat door de seed data)
+INSERT INTO inventory_items (name, category, location_id, household_id, quantity, unit, expiry_date, added_date, created_at, updated_at)
+VALUES ('Eggs', 'dairy', 2, 1, 12, 'pieces', '2026-06-10', CURRENT_DATE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
-INSERT INTO inventory_items (name, category, location_id, quantity, unit, expiry_date, added_date, expired, created_at, updated_at)
-VALUES ('Butter', 'dairy', 2, 500, 'grams', '2026-06-20', CURRENT_DATE, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+INSERT INTO inventory_items (name, category, location_id, household_id, quantity, unit, expiry_date, added_date, created_at, updated_at)
+VALUES ('Butter', 'dairy', 2, 1, 500, 'grams', '2026-06-20', CURRENT_DATE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- Check data
-SELECT * FROM location;
+SELECT * FROM locations;
 SELECT * FROM inventory_items;
-SELECT * FROM recipe;
+SELECT * FROM recipes;
 ```
 
 ---
@@ -119,12 +119,6 @@ curl http://localhost:8080/api/recommendations
 
 # Get recommendations (top 5)
 curl "http://localhost:8080/api/recommendations?limit=5"
-
-# Get recipes using expiring items
-curl http://localhost:8080/api/recommendations/expiring
-
-# Get specific recipe match score
-curl http://localhost:8080/api/recommendations/recipe/1
 ```
 
 ### Voorbeeld response:
@@ -150,6 +144,8 @@ curl http://localhost:8080/api/recommendations/recipe/1
 
 ## 6️⃣ Alle beschikbare endpoints
 
+Zie ook Swagger UI: http://localhost:8080/swagger-ui.html
+
 ### 📍 Locations
 ```
 GET    /api/locations
@@ -166,11 +162,6 @@ POST      /api/inventory
 GET       /api/inventory/{id}
 PUT       /api/inventory/{id}
 DELETE    /api/inventory/{id}
-GET       /api/inventory/location/{location}
-GET       /api/inventory/category/{category}
-GET       /api/inventory/search?q=...
-GET       /api/inventory/expiring
-GET       /api/inventory/expired
 ```
 
 ### 📖 Recipes
@@ -180,18 +171,14 @@ POST      /api/recipes
 GET       /api/recipes/{id}
 PUT       /api/recipes/{id}
 DELETE    /api/recipes/{id}
-GET       /api/recipes/difficulty/{difficulty}
-GET       /api/recipes/cuisine/{cuisine}
-GET       /api/recipes/search?q=...
+GET       /api/recipes/{id}/availability?servings=2
+POST      /api/recipes/{id}/cook
 ```
 
 ### 🎯 Recommendations
 ```
 GET       /api/recommendations
 GET       /api/recommendations?limit=20
-GET       /api/recommendations/cuisine/{cuisine}
-GET       /api/recommendations/recipe/{recipeId}
-GET       /api/recommendations/expiring
 ```
 
 ---
@@ -220,7 +207,7 @@ docker build -t onsinventory-backend:latest .
 docker run -p 8080:8080 onsinventory-backend:latest
 ```
 
-### Deploy met Kubernetes
+### Deploy naar de Raspberry Pi
 Zie [DEPLOYMENT.md](DEPLOYMENT.md) voor gedetailleerde instructies!
 
 ---
@@ -232,7 +219,7 @@ Zie [DEPLOYMENT.md](DEPLOYMENT.md) voor gedetailleerde instructies!
 # Check Java version
 java -version
 
-# Zorg dat je Java 21+ hebt!
+# Zorg dat je Java 25+ hebt!
 # Download: https://adoptium.net/
 ```
 

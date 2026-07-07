@@ -11,6 +11,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { ChevronLeft, ChevronRight, Check, Copy, GripVertical, Minus, Plus, Search, ShoppingCart, X } from "lucide-react";
+import { useInventoryQuery, useRecipesQuery } from "../hooks/queries";
 import { InventoryItem, Recipe } from "../types";
 
 // ─── Local types ────────────────────────────────────────────────────────────
@@ -385,7 +386,11 @@ function GroceryModal({
 
 // ─── Main page component ──────────────────────────────────────────────────────
 
-export default function MealPlannerPage({ recipes, inventory }: { recipes: Recipe[]; inventory: InventoryItem[] }) {
+export default function MealPlannerPage() {
+  const recipesQuery = useRecipesQuery();
+  const inventoryQuery = useInventoryQuery();
+  const recipes = useMemo(() => recipesQuery.data ?? [], [recipesQuery.data]);
+  const inventory = useMemo(() => inventoryQuery.data ?? [], [inventoryQuery.data]);
   const [weekOffset, setWeekOffset] = useState(0);
   const [mealPlan, setMealPlan] = useState<MealPlan>(() => {
     try {

@@ -4,26 +4,28 @@ Een Spring Boot applicatie waarmee je de inhoud van je voorraadkast, koelkast en
 
 ## ✨ Wat deze app doet
 
-Deze repository bevat momenteel een **Java 21 + Spring Boot backend API** voor:
+Deze repository bevat een **Java 25 + Spring Boot backend API** voor:
 
 - **Voorraadbeheer** van pantry, koelkast en vriezer
 - **Locatiebeheer** voor opslagplekken zoals Pantry, Fridge en Freezer
 - **Receptbeheer** met ingrediënten, bereidingstijd en moeilijkheid
 - **Receptaanbevelingen** op basis van beschikbare ingrediënten
 - **Vervaldatumdetectie** voor verlopen en bijna-verlopende producten
-- **Zoeken en filteren** binnen voorraad en recepten
+- **Huishoudens** met leden, uitnodigingen per e-mail en gedeelde voorraad
 
 ## 🛠️ Tech stack
 
-- **Java 21**
-- **Spring Boot 3.2.5**
+- **Java 25**
+- **Spring Boot 4.1**
 - **Maven**
 - **Spring Web**
 - **Spring Data JPA / Hibernate**
+- **Flyway** voor productie-migraties
 - **H2** voor lokale development
 - **PostgreSQL** voor productie
-- **Spring Security** aanwezig, momenteel open configuratie
+- **Spring Security + JWT** (uit te schakelen voor lokale development)
 - **Spring Boot Actuator** voor health/info endpoints
+- **springdoc-openapi** voor Swagger UI
 
 ## 📦 Projectstatus
 
@@ -31,20 +33,15 @@ De backend is functioneel en bevat:
 
 - CRUD-endpoints voor locaties, voorraaditems en recepten
 - Een recommendation service die recepten rangschikt op ingredient-match
+- Accounts, login (JWT), wachtwoord-reset en huishouden-uitnodigingen via e-mail (Resend)
 - Seed data voor lokale development
 - Integratietests voor foutafhandeling en receptservice
-
-Nog niet aanwezig in deze module:
-
-- Een volwaardige frontend in deze `backend` map
-- Inlogfunctionaliteit of gebruikersaccounts
-- Swagger/OpenAPI documentatie
 
 ## 🚀 Snel starten
 
 ### Vereisten
 
-- Java 21+
+- Java 25+
 - Maven 3.8+
 
 ### Lokaal starten met H2
@@ -91,7 +88,7 @@ app:
 Standaardwaarden:
 
 - `application.yml` → `true`
-- `application-prod.yml` → `false`
+- `application-prod.yml` → `true` (alleen actief als de database nog leeg is)
 
 De seed data bevat onder andere:
 
@@ -133,17 +130,29 @@ SPRING_DATASOURCE_PASSWORD='inventory_password' \
 java -jar target/onsinventory-backend-1.0.0.jar --spring.profiles.active=prod
 ```
 
-## 🔓 Security
+## 🔐 Security
 
-Spring Security is geconfigureerd, maar staat momenteel alle requests toe. CSRF staat uit en alle endpoints zijn open voor development en lokale integratie.
-
-Dat betekent:
-
-- geen login vereist
-- geen JWT/OAuth2 configuratie actief
-- geschikt voor lokaal testen, niet direct voor internet-exposure zonder extra hardening
+Authenticatie loopt via JWT (login met username/wachtwoord). Voor lokale development staat `app.security.enabled: false` in `application.yml`, waardoor alle endpoints open zijn. In het `prod` profiel staat security aan en zijn alleen de auth-endpoints en invite-preview publiek.
 
 ## 📡 API-overzicht
+
+Volledige, actuele documentatie staat in Swagger UI: `http://localhost:8080/swagger-ui.html`.
+
+### Auth & Household
+
+```text
+POST   /api/auth/register
+POST   /api/auth/login
+POST   /api/auth/forgot-password
+POST   /api/auth/reset-password
+POST   /api/auth/change-password
+GET    /api/auth/me
+GET    /api/auth/config
+DELETE /api/auth/account
+GET    /api/household
+POST   /api/household/invite
+GET    /api/household/invite/{token}
+```
 
 ### Locations
 
@@ -163,11 +172,6 @@ POST   /api/inventory
 GET    /api/inventory/{id}
 PUT    /api/inventory/{id}
 DELETE /api/inventory/{id}
-GET    /api/inventory/location/{location}
-GET    /api/inventory/category/{category}
-GET    /api/inventory/search?q=...
-GET    /api/inventory/expiring
-GET    /api/inventory/expired
 ```
 
 ### Recipes
@@ -178,9 +182,8 @@ POST   /api/recipes
 GET    /api/recipes/{id}
 PUT    /api/recipes/{id}
 DELETE /api/recipes/{id}
-GET    /api/recipes/difficulty/{difficulty}
-GET    /api/recipes/cuisine/{cuisine}
-GET    /api/recipes/search?q=...
+GET    /api/recipes/{id}/availability?servings=2
+POST   /api/recipes/{id}/cook
 ```
 
 ### Recommendations
@@ -188,9 +191,6 @@ GET    /api/recipes/search?q=...
 ```text
 GET    /api/recommendations
 GET    /api/recommendations?limit=20
-GET    /api/recommendations/cuisine/{cuisine}
-GET    /api/recommendations/recipe/{recipeId}
-GET    /api/recommendations/expiring
 ```
 
 ## 🧠 Hoe de aanbevelingen werken
@@ -242,12 +242,6 @@ curl http://localhost:8080/api/recipes
 
 ```bash
 curl 'http://localhost:8080/api/recommendations?limit=5'
-```
-
-### Recepten met bijna-verlopende ingrediënten
-
-```bash
-curl http://localhost:8080/api/recommendations/expiring
 ```
 
 ## 🧱 Domeinmodel
@@ -339,11 +333,8 @@ src/main/java/nl/seanderoo/inventory/
 
 Handige uitbreidingen voor een volgende iteratie:
 
-- frontend bouwen voor voorraadbeheer en receptweergave
-- authenticatie toevoegen per gebruiker/huishouden
 - barcode scanning voor snelle invoer
 - shopping list generatie op basis van ontbrekende ingrediënten
-- OpenAPI/Swagger toevoegen
 - betere fuzzy matching en voedingsfilters
 
 ## 📚 Extra documentatie

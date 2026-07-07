@@ -270,7 +270,6 @@ SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/inventorydb
 SPRING_DATASOURCE_USERNAME=inventory_user
 SPRING_DATASOURCE_PASSWORD=<strong-password>
 SPRING_PROFILES_ACTIVE=prod
-SPRING_JPA_HIBERNATE_DDL_AUTO=update
 APP_CORS_ALLOWED_ORIGINS=https://onsinventory.com,https://www.onsinventory.com
 VITE_API_BASE_URL=https://api.onsinventory.com
 ```

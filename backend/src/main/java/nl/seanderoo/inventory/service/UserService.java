@@ -90,7 +90,7 @@ public class UserService implements UserDetailsService {
             invite = householdService.getValidInvite(request.getInviteToken());
             household = invite.getHousehold();
         } else {
-            household = householdService.createHouseholdWithDefaultLocations(request.getFirstName() + "'s Household");
+            household = householdService.createHouseholdWithDefaultLocations(request.getFirstName().trim());
         }
 
         User user = userRepository.save(User.builder()

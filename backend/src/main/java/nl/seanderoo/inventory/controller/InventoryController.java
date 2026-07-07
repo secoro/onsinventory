@@ -10,7 +10,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/inventory")
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class InventoryController {
 
     private final InventoryService inventoryService;
@@ -27,50 +26,17 @@ public class InventoryController {
 
     @GetMapping("/{id}")
     public ResponseEntity<InventoryItemDTO> getItem(@PathVariable Long id) {
-        InventoryItemDTO item = inventoryService.getItem(id);
-        return ResponseEntity.ok(item);
+        return ResponseEntity.ok(inventoryService.getItem(id));
     }
 
     @GetMapping
     public ResponseEntity<List<InventoryItemDTO>> getAllItems() {
-        List<InventoryItemDTO> items = inventoryService.getAllItems();
-        return ResponseEntity.ok(items);
-    }
-
-    @GetMapping("/location/{location}")
-    public ResponseEntity<List<InventoryItemDTO>> getItemsByLocation(@PathVariable String location) {
-        List<InventoryItemDTO> items = inventoryService.getItemsByLocation(location);
-        return ResponseEntity.ok(items);
-    }
-
-    @GetMapping("/category/{category}")
-    public ResponseEntity<List<InventoryItemDTO>> getItemsByCategory(@PathVariable String category) {
-        List<InventoryItemDTO> items = inventoryService.getItemsByCategory(category);
-        return ResponseEntity.ok(items);
-    }
-
-    @GetMapping("/search")
-    public ResponseEntity<List<InventoryItemDTO>> searchItems(@RequestParam String q) {
-        List<InventoryItemDTO> items = inventoryService.searchItems(q);
-        return ResponseEntity.ok(items);
-    }
-
-    @GetMapping("/expiring")
-    public ResponseEntity<List<InventoryItemDTO>> getExpiringItems() {
-        List<InventoryItemDTO> items = inventoryService.getExpiringItems();
-        return ResponseEntity.ok(items);
-    }
-
-    @GetMapping("/expired")
-    public ResponseEntity<List<InventoryItemDTO>> getExpiredItems() {
-        List<InventoryItemDTO> items = inventoryService.getExpiredItems();
-        return ResponseEntity.ok(items);
+        return ResponseEntity.ok(inventoryService.getAllItems());
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<InventoryItemDTO> updateItem(@PathVariable Long id, @RequestBody InventoryItemDTO dto) {
-        InventoryItemDTO updated = inventoryService.updateItem(id, dto);
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(inventoryService.updateItem(id, dto));
     }
 
     @DeleteMapping("/{id}")

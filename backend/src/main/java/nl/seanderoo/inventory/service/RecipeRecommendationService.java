@@ -1,7 +1,6 @@
 package nl.seanderoo.inventory.service;
 
 import nl.seanderoo.inventory.dto.RecipeRecommendationDTO;
-import nl.seanderoo.inventory.exception.ResourceNotFoundException;
 import nl.seanderoo.inventory.model.InventoryItem;
 import nl.seanderoo.inventory.model.Recipe;
 import nl.seanderoo.inventory.model.RecipeIngredient;
@@ -10,9 +9,10 @@ import nl.seanderoo.inventory.repository.RecipeRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.OptionalDouble;
 
 @Service
 @Transactional(readOnly = true)
@@ -33,89 +33,41 @@ public class RecipeRecommendationService {
         this.currentHouseholdProvider = currentHouseholdProvider;
     }
 
-    public List<RecipeRecommendationDTO> getRecommendations(Integer limit) {
+    public List<RecipeRecommendationDTO> getRecommendations(int limit) {
         Long householdId = currentHouseholdProvider.getHouseholdId();
         List<InventoryItem> inventory = inventoryItemRepository.findByHouseholdId(householdId);
-        List<Recipe> recipes = recipeRepository.findAllByHouseholdId(householdId);
 
-        return recipes.stream()
-                .map(recipe -> calculateMatchScore(recipe, inventory))
-                .filter(rec -> rec.getMatchPercentage() > 0) // Only return recipes with at least some match
-                .sorted((a, b) -> {
-                    // Sort by match percentage (descending), then by expiring ingredients count (descending)
-                    int matchCompare = b.getMatchPercentage().compareTo(a.getMatchPercentage());
-                    if (matchCompare != 0) return matchCompare;
-                    return b.getExpiringIngredientsUsed().size() - a.getExpiringIngredientsUsed().size();
-                })
-                .limit(limit != null ? limit : 10)
-                .collect(Collectors.toList());
-    }
-
-    public List<RecipeRecommendationDTO> getRecommendationsByCategory(String category, Integer limit) {
-        Long householdId = currentHouseholdProvider.getHouseholdId();
-        List<InventoryItem> inventory = inventoryItemRepository.findByHouseholdId(householdId);
-        List<Recipe> recipes = recipeRepository.findByCuisineAndHouseholdId(category, householdId);
-
-        return recipes.stream()
+        return recipeRepository.findAllByHouseholdId(householdId).stream()
                 .map(recipe -> calculateMatchScore(recipe, inventory))
                 .filter(rec -> rec.getMatchPercentage() > 0)
-                .sorted((a, b) -> b.getMatchPercentage().compareTo(a.getMatchPercentage()))
-                .limit(limit != null ? limit : 10)
-                .collect(Collectors.toList());
-    }
-
-    public RecipeRecommendationDTO getRecommendationForRecipe(Long recipeId) {
-        Long householdId = currentHouseholdProvider.getHouseholdId();
-        Recipe recipe = recipeRepository.findByIdAndHouseholdId(recipeId, householdId)
-                .orElseThrow(() -> new ResourceNotFoundException("Recipe not found: " + recipeId));
-        List<InventoryItem> inventory = inventoryItemRepository.findByHouseholdId(householdId);
-        return calculateMatchScore(recipe, inventory);
+                .sorted(Comparator.comparing(RecipeRecommendationDTO::getMatchPercentage).reversed()
+                        .thenComparing(rec -> rec.getExpiringIngredientsUsed().size(), Comparator.reverseOrder()))
+                .limit(limit)
+                .toList();
     }
 
     private RecipeRecommendationDTO calculateMatchScore(Recipe recipe, List<InventoryItem> inventory) {
-        Set<RecipeIngredient> requiredIngredients = recipe.getIngredients().stream()
+        List<RecipeIngredient> requiredIngredients = recipe.getIngredients().stream()
                 .filter(ing -> !ing.isOptional())
-                .collect(Collectors.toSet());
+                .toList();
 
         List<String> missingIngredients = new ArrayList<>();
         List<String> insufficientIngredients = new ArrayList<>();
-        List<String> matchedIngredientsUsed = new ArrayList<>();
         List<String> expiringIngredientsUsed = new ArrayList<>();
-
         int matchedCount = 0;
 
         for (RecipeIngredient ingredient : requiredIngredients) {
-            String ingredientNameLower = ingredient.getIngredientName().toLowerCase();
-            InventoryItem matchedItem = null;
-
-            for (InventoryItem item : inventory) {
-                String itemNameLower = item.getName().toLowerCase();
-                if (itemNameLower.equals(ingredientNameLower) ||
-                    itemNameLower.contains(ingredientNameLower) ||
-                    ingredientNameLower.contains(itemNameLower)) {
-                    matchedItem = item;
-                    break;
-                }
-            }
-
+            InventoryItem matchedItem = findMatch(ingredient, inventory);
             if (matchedItem == null) {
                 missingIngredients.add(ingredient.getIngredientName());
                 continue;
             }
 
-            if ("herbs".equalsIgnoreCase(matchedItem.getCategory())) {
-                matchedCount++;
-                matchedIngredientsUsed.add(ingredient.getIngredientName());
-            } else if (!hasEnoughQuantity(ingredient, matchedItem)) {
+            matchedCount++;
+            if (!"herbs".equalsIgnoreCase(matchedItem.getCategory()) && !hasEnoughQuantity(ingredient, matchedItem)) {
                 insufficientIngredients.add(ingredient.getIngredientName());
-                matchedCount++;
-                matchedIngredientsUsed.add(ingredient.getIngredientName());
-            } else {
-                matchedCount++;
-                matchedIngredientsUsed.add(ingredient.getIngredientName());
             }
-
-            if (matchedItem.isExpiredOrExpiringSoon()) {
+            if (matchedItem.isExpiringSoon()) {
                 expiringIngredientsUsed.add(ingredient.getIngredientName());
             }
         }
@@ -124,7 +76,7 @@ public class RecipeRecommendationService {
                 (int) Math.round((double) matchedCount / requiredIngredients.size() * 100);
 
         return RecipeRecommendationDTO.builder()
-                .recipe(recipeService.getRecipe(recipe.getId()))
+                .recipe(recipeService.toDTO(recipe))
                 .matchPercentage(matchPercentage)
                 .matchedIngredients(matchedCount)
                 .totalIngredients(requiredIngredients.size())
@@ -134,79 +86,20 @@ public class RecipeRecommendationService {
                 .build();
     }
 
-    private boolean hasEnoughQuantity(RecipeIngredient ingredient, InventoryItem item) {
-        double needed = ingredient.getQuantity();
-        String neededUnit = InventoryService.normalizeUnit(ingredient.getUnit());
-        String haveUnit = InventoryService.normalizeUnit(item.getUnit());
-
-        if (neededUnit.equals(haveUnit)) {
-            return item.getQuantity() >= needed;
-        }
-
-        OptionalDouble converted = InventoryService.convertUnit(needed, ingredient.getUnit(), item.getUnit());
-        if (converted.isPresent()) {
-            return item.getQuantity() >= converted.getAsDouble();
-        }
-
-        return true;
+    private static InventoryItem findMatch(RecipeIngredient ingredient, List<InventoryItem> inventory) {
+        String ingredientName = ingredient.getIngredientName().toLowerCase();
+        return inventory.stream()
+                .filter(item -> {
+                    String itemName = item.getName().toLowerCase();
+                    return itemName.contains(ingredientName) || ingredientName.contains(itemName);
+                })
+                .findFirst()
+                .orElse(null);
     }
 
-    public List<RecipeRecommendationDTO> getRecipesUsingExpiringItems(Integer limit) {
-        Long householdId = currentHouseholdProvider.getHouseholdId();
-        LocalDate soon = LocalDate.now().plusDays(3);
-        List<InventoryItem> expiringItems = inventoryItemRepository.findExpiringSoonItems(householdId, LocalDate.now(), soon);
-
-        if (expiringItems.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        Set<String> expiringItemNames = expiringItems.stream()
-                .map(item -> item.getName().toLowerCase())
-                .collect(Collectors.toSet());
-
-        List<Recipe> recipes = recipeRepository.findAllByHouseholdId(householdId);
-
-        return recipes.stream()
-                .map(recipe -> calculateMatchScoreForExpiringItems(recipe, expiringItemNames))
-                .filter(rec -> rec.getMatchPercentage() > 0)
-                .sorted((a, b) -> b.getMatchPercentage().compareTo(a.getMatchPercentage()))
-                .limit(limit != null ? limit : 5)
-                .collect(Collectors.toList());
-    }
-
-    private RecipeRecommendationDTO calculateMatchScoreForExpiringItems(Recipe recipe, Set<String> expiringItemNames) {
-        Set<RecipeIngredient> requiredIngredients = recipe.getIngredients().stream()
-                .filter(ing -> !ing.isOptional())
-                .collect(Collectors.toSet());
-
-        List<String> expiringIngredientsUsed = new ArrayList<>();
-        int matchedCount = 0;
-
-        for (RecipeIngredient ingredient : requiredIngredients) {
-            String ingredientNameLower = ingredient.getIngredientName().toLowerCase();
-
-            for (String expiringItem : expiringItemNames) {
-                if (expiringItem.equals(ingredientNameLower) ||
-                    expiringItem.contains(ingredientNameLower) ||
-                    ingredientNameLower.contains(expiringItem)) {
-                    expiringIngredientsUsed.add(ingredient.getIngredientName());
-                    matchedCount++;
-                    break;
-                }
-            }
-        }
-
-        int matchPercentage = requiredIngredients.isEmpty() ? 0 :
-                (int) Math.round((double) matchedCount / requiredIngredients.size() * 100);
-
-        return RecipeRecommendationDTO.builder()
-                .recipe(recipeService.getRecipe(recipe.getId()))
-                .matchPercentage(matchPercentage)
-                .matchedIngredients(matchedCount)
-                .totalIngredients(requiredIngredients.size())
-                .missingIngredients(new ArrayList<>())
-                .insufficientIngredients(new ArrayList<>())
-                .expiringIngredientsUsed(expiringIngredientsUsed)
-                .build();
+    private static boolean hasEnoughQuantity(RecipeIngredient ingredient, InventoryItem item) {
+        OptionalDouble needed = InventoryService.convertUnit(ingredient.getQuantity(), ingredient.getUnit(), item.getUnit());
+        // Incompatible units - assume it's enough rather than blocking the recommendation
+        return needed.isEmpty() || item.getQuantity() >= needed.getAsDouble();
     }
 }

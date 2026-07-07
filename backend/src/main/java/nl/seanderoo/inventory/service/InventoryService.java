@@ -15,15 +15,11 @@ import nl.seanderoo.inventory.repository.RecipeRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -34,23 +30,22 @@ public class InventoryService {
     );
 
     // Keyed by normalized unit — all variants map to one canonical form
-    private static final Map<String, Double> VOLUME_TO_ML = new HashMap<>();
-    private static final Map<String, Double> WEIGHT_TO_GRAMS = new HashMap<>();
+    private static final Map<String, Double> VOLUME_TO_ML = Map.of(
+            "ml", 1.0,
+            "liters", 1000.0,
+            "dl", 100.0,
+            "tsp", 5.0,
+            "tbsp", 15.0,
+            "cup", 240.0,
+            "floz", 29.57
+    );
 
-    static {
-        VOLUME_TO_ML.put("ml", 1.0);
-        VOLUME_TO_ML.put("liters", 1000.0);
-        VOLUME_TO_ML.put("dl", 100.0);
-        VOLUME_TO_ML.put("tsp", 5.0);
-        VOLUME_TO_ML.put("tbsp", 15.0);
-        VOLUME_TO_ML.put("cup", 240.0);
-        VOLUME_TO_ML.put("floz", 29.57);
-
-        WEIGHT_TO_GRAMS.put("grams", 1.0);
-        WEIGHT_TO_GRAMS.put("kg", 1000.0);
-        WEIGHT_TO_GRAMS.put("oz", 28.35);
-        WEIGHT_TO_GRAMS.put("lbs", 453.6);
-    }
+    private static final Map<String, Double> WEIGHT_TO_GRAMS = Map.of(
+            "grams", 1.0,
+            "kg", 1000.0,
+            "oz", 28.35,
+            "lbs", 453.6
+    );
 
     static String normalizeUnit(String unit) {
         return switch (unit.toLowerCase().trim()) {
@@ -107,8 +102,7 @@ public class InventoryService {
 
     public InventoryItemDTO addItem(InventoryItemDTO dto) {
         validateCreateRequest(dto);
-        Long householdId = currentHouseholdProvider.getHouseholdId();
-        Location location = resolveLocation(dto.getLocation(), householdId);
+        Location location = resolveLocation(dto.getLocation(), currentHouseholdProvider.getHouseholdId());
 
         InventoryItem item = InventoryItem.builder()
                 .name(dto.getName())
@@ -121,8 +115,7 @@ public class InventoryService {
                 .notes(dto.getNotes())
                 .build();
 
-        InventoryItem saved = inventoryItemRepository.save(item);
-        return toDTO(saved);
+        return toDTO(inventoryItemRepository.save(item));
     }
 
     public InventoryItemDTO updateItem(Long id, InventoryItemDTO dto) {
@@ -136,8 +129,7 @@ public class InventoryService {
         if (dto.getNotes() != null) item.setNotes(dto.getNotes());
         if (dto.getLocation() != null) item.setLocation(resolveLocation(dto.getLocation(), currentHouseholdProvider.getHouseholdId()));
 
-        InventoryItem updated = inventoryItemRepository.save(item);
-        return toDTO(updated);
+        return toDTO(inventoryItemRepository.save(item));
     }
 
     public void deleteItem(Long id) {
@@ -151,42 +143,7 @@ public class InventoryService {
     public List<InventoryItemDTO> getAllItems() {
         return inventoryItemRepository.findByHouseholdId(currentHouseholdProvider.getHouseholdId()).stream()
                 .map(this::toDTO)
-                .collect(Collectors.toList());
-    }
-
-    public List<InventoryItemDTO> getItemsByLocation(String location) {
-        Long householdId = currentHouseholdProvider.getHouseholdId();
-        Location loc = locationRepository.findByNameAndHouseholdId(location, householdId)
-                .orElseThrow(() -> new ResourceNotFoundException("Location not found: " + location));
-        return inventoryItemRepository.findByLocationIdAndHouseholdId(loc.getId(), householdId).stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
-    }
-
-    public List<InventoryItemDTO> getItemsByCategory(String category) {
-        return inventoryItemRepository.findByCategoryAndHouseholdId(category, currentHouseholdProvider.getHouseholdId()).stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
-    }
-
-    public List<InventoryItemDTO> searchItems(String query) {
-        return inventoryItemRepository.findByNameContainingIgnoreCaseAndHouseholdId(query, currentHouseholdProvider.getHouseholdId()).stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
-    }
-
-    public List<InventoryItemDTO> getExpiringItems() {
-        Long householdId = currentHouseholdProvider.getHouseholdId();
-        LocalDate soon = LocalDate.now().plusDays(3);
-        return inventoryItemRepository.findExpiringSoonItems(householdId, LocalDate.now(), soon).stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
-    }
-
-    public List<InventoryItemDTO> getExpiredItems() {
-        return inventoryItemRepository.findExpiredItems(currentHouseholdProvider.getHouseholdId()).stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public RecipeAvailabilityDTO checkAvailability(Long recipeId, int requestedServings) {
@@ -197,49 +154,23 @@ public class InventoryService {
         List<String> missing = new ArrayList<>();
 
         for (RecipeIngredient ingredient : recipe.getIngredients()) {
-            if (ALWAYS_AVAILABLE.contains(ingredient.getIngredientName().toLowerCase().trim())) continue;
-            double needed = ingredient.getQuantity() * scale;
+            if (isAlwaysAvailable(ingredient)) continue;
             List<InventoryItem> candidates = findCandidates(ingredient.getIngredientName());
-
             if (candidates.isEmpty()) {
                 missing.add(ingredient.getIngredientName());
                 continue;
             }
+            if (containsHerb(candidates)) continue;
 
-            if (candidates.stream().anyMatch(c -> "herbs".equalsIgnoreCase(c.getCategory()))) continue;
+            IngredientMatch match = matchIngredient(candidates, ingredient, ingredient.getQuantity() * scale);
+            if (match.item().getQuantity() >= match.neededQuantity()) continue;
 
-            Optional<InventoryItem> exactMatch = candidates.stream()
-                    .filter(item -> normalizeUnit(item.getUnit()).equals(normalizeUnit(ingredient.getUnit())))
-                    .findFirst();
-
-            if (exactMatch.isPresent()) {
-                InventoryItem item = exactMatch.get();
-                if (item.getQuantity() < needed) {
-                    insufficient.add(ingredient.getIngredientName()
-                            + " (need " + formatQty(needed) + " " + ingredient.getUnit()
-                            + ", have " + formatQty(item.getQuantity()) + " " + item.getUnit() + ")");
-                }
-                continue;
-            }
-
-            Optional<InventoryItem> convertibleMatch = candidates.stream()
-                    .filter(c -> convertUnit(needed, ingredient.getUnit(), c.getUnit()).isPresent())
-                    .findFirst();
-
-            if (convertibleMatch.isPresent()) {
-                InventoryItem item = convertibleMatch.get();
-                double convertedNeeded = convertUnit(needed, ingredient.getUnit(), item.getUnit()).getAsDouble();
-                if (item.getQuantity() < convertedNeeded) {
-                    insufficient.add(ingredient.getIngredientName()
-                            + " (need " + formatQty(convertedNeeded) + " " + item.getUnit()
-                            + ", have " + formatQty(item.getQuantity()) + " " + item.getUnit() + ")");
-                }
-                continue;
-            }
-
-            // Approximation fallback: always deduct 1, so available if quantity >= 1
-            if (candidates.get(0).getQuantity() < 1.0) {
+            if (match.approximated()) {
                 missing.add(ingredient.getIngredientName());
+            } else {
+                insufficient.add(ingredient.getIngredientName()
+                        + " (need " + formatQty(match.neededQuantity()) + " " + match.item().getUnit()
+                        + ", have " + formatQty(match.item().getQuantity()) + " " + match.item().getUnit() + ")");
             }
         }
 
@@ -258,46 +189,19 @@ public class InventoryService {
         List<String> unmatched = new ArrayList<>();
 
         for (RecipeIngredient ingredient : recipe.getIngredients()) {
-            if (ALWAYS_AVAILABLE.contains(ingredient.getIngredientName().toLowerCase().trim())) continue;
+            if (isAlwaysAvailable(ingredient)) continue;
             if (skippedIngredients.stream().anyMatch(s -> s.equalsIgnoreCase(ingredient.getIngredientName()))) continue;
-            double scaledQuantity = ingredient.getQuantity() * scale;
             List<InventoryItem> candidates = findCandidates(ingredient.getIngredientName());
-
             if (candidates.isEmpty()) {
                 unmatched.add(ingredient.getIngredientName());
                 continue;
             }
+            if (containsHerb(candidates)) continue;
 
-            if (candidates.stream().anyMatch(c -> "herbs".equalsIgnoreCase(c.getCategory()))) continue;
-
-            Optional<InventoryItem> exactMatch = candidates.stream()
-                    .filter(item -> normalizeUnit(item.getUnit()).equals(normalizeUnit(ingredient.getUnit())))
-                    .findFirst();
-
-            InventoryItem item;
-            double toDeduct;
-            boolean approximated = false;
-
-            if (exactMatch.isPresent()) {
-                item = exactMatch.get();
-                toDeduct = scaledQuantity;
-            } else {
-                Optional<InventoryItem> convertibleMatch = candidates.stream()
-                        .filter(c -> convertUnit(scaledQuantity, ingredient.getUnit(), c.getUnit()).isPresent())
-                        .findFirst();
-
-                if (convertibleMatch.isPresent()) {
-                    item = convertibleMatch.get();
-                    toDeduct = convertUnit(scaledQuantity, ingredient.getUnit(), item.getUnit()).getAsDouble();
-                } else {
-                    item = candidates.get(0);
-                    toDeduct = 1.0;
-                    approximated = true;
-                }
-            }
-
-            double remaining = item.getQuantity() - toDeduct;
-            String suffix = approximated ? " (unit approximated)" : "";
+            IngredientMatch match = matchIngredient(candidates, ingredient, ingredient.getQuantity() * scale);
+            InventoryItem item = match.item();
+            double remaining = item.getQuantity() - match.neededQuantity();
+            String suffix = match.approximated() ? " (unit approximated)" : "";
 
             if (remaining <= 0) {
                 inventoryItemRepository.delete(item);
@@ -305,7 +209,7 @@ public class InventoryService {
             } else {
                 item.setQuantity(remaining);
                 inventoryItemRepository.save(item);
-                consumed.add(item.getName() + ": −" + formatQty(toDeduct) + " " + item.getUnit() + suffix);
+                consumed.add(item.getName() + ": −" + formatQty(match.neededQuantity()) + " " + item.getUnit() + suffix);
             }
         }
 
@@ -315,6 +219,33 @@ public class InventoryService {
                 .build();
     }
 
+    /** The inventory item chosen for an ingredient, with the needed quantity converted to that item's unit. */
+    private record IngredientMatch(InventoryItem item, double neededQuantity, boolean approximated) {}
+
+    /**
+     * Picks the first candidate whose unit the needed quantity can be converted to.
+     * When no unit is compatible, falls back to the first candidate and approximates
+     * the ingredient as 1 of that item's unit.
+     */
+    private static IngredientMatch matchIngredient(List<InventoryItem> candidates, RecipeIngredient ingredient, double neededQuantity) {
+        for (InventoryItem candidate : candidates) {
+            OptionalDouble converted = convertUnit(neededQuantity, ingredient.getUnit(), candidate.getUnit());
+            if (converted.isPresent()) {
+                return new IngredientMatch(candidate, converted.getAsDouble(), false);
+            }
+        }
+        return new IngredientMatch(candidates.get(0), 1.0, true);
+    }
+
+    private static boolean isAlwaysAvailable(RecipeIngredient ingredient) {
+        return ALWAYS_AVAILABLE.contains(ingredient.getIngredientName().toLowerCase().trim());
+    }
+
+    // Herbs are assumed to be used in negligible quantities, so having any match is enough
+    private static boolean containsHerb(List<InventoryItem> candidates) {
+        return candidates.stream().anyMatch(c -> "herbs".equalsIgnoreCase(c.getCategory()));
+    }
+
     private List<InventoryItem> findCandidates(String ingredientName) {
         Long householdId = currentHouseholdProvider.getHouseholdId();
         List<InventoryItem> candidates = inventoryItemRepository.findByNameContainingIgnoreCaseAndHouseholdId(ingredientName, householdId);
@@ -322,7 +253,7 @@ public class InventoryService {
             String lower = ingredientName.toLowerCase();
             candidates = inventoryItemRepository.findByHouseholdId(householdId).stream()
                     .filter(item -> lower.contains(item.getName().toLowerCase()))
-                    .collect(Collectors.toList());
+                    .toList();
         }
         return candidates;
     }
@@ -357,7 +288,7 @@ public class InventoryService {
                 .expiryDate(item.getExpiryDate())
                 .addedDate(item.getAddedDate())
                 .expired(item.isExpired())
-                .expiringsoon(item.isExpiredOrExpiringSoon())
+                .expiringsoon(item.isExpiringSoon())
                 .notes(item.getNotes())
                 .build();
     }

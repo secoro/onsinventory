@@ -155,7 +155,7 @@ export function cookRecipe(id: number, servings: number, skippedIngredients: str
   });
 }
 
-type AuthResponse = {
+export type AuthResponse = {
   token: string;
   username: string;
   email: string;

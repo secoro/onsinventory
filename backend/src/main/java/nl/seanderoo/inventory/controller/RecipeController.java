@@ -14,7 +14,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/recipes")
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class RecipeController {
 
     private final RecipeService recipeService;
@@ -33,38 +32,17 @@ public class RecipeController {
 
     @GetMapping("/{id}")
     public ResponseEntity<RecipeDTO> getRecipe(@PathVariable Long id) {
-        RecipeDTO recipe = recipeService.getRecipe(id);
-        return ResponseEntity.ok(recipe);
+        return ResponseEntity.ok(recipeService.getRecipe(id));
     }
 
     @GetMapping
     public ResponseEntity<List<RecipeDTO>> getAllRecipes() {
-        List<RecipeDTO> recipes = recipeService.getAllRecipes();
-        return ResponseEntity.ok(recipes);
-    }
-
-    @GetMapping("/difficulty/{difficulty}")
-    public ResponseEntity<List<RecipeDTO>> getRecipesByDifficulty(@PathVariable String difficulty) {
-        List<RecipeDTO> recipes = recipeService.getRecipesByDifficulty(difficulty);
-        return ResponseEntity.ok(recipes);
-    }
-
-    @GetMapping("/cuisine/{cuisine}")
-    public ResponseEntity<List<RecipeDTO>> getRecipesByCuisine(@PathVariable String cuisine) {
-        List<RecipeDTO> recipes = recipeService.getRecipesByCuisine(cuisine);
-        return ResponseEntity.ok(recipes);
-    }
-
-    @GetMapping("/search")
-    public ResponseEntity<List<RecipeDTO>> searchRecipes(@RequestParam String q) {
-        List<RecipeDTO> recipes = recipeService.searchRecipes(q);
-        return ResponseEntity.ok(recipes);
+        return ResponseEntity.ok(recipeService.getAllRecipes());
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<RecipeDTO> updateRecipe(@PathVariable Long id, @RequestBody RecipeDTO dto) {
-        RecipeDTO updated = recipeService.updateRecipe(id, dto);
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(recipeService.updateRecipe(id, dto));
     }
 
     @DeleteMapping("/{id}")

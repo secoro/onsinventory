@@ -17,7 +17,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/household")
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class HouseholdController {
 
     private final HouseholdService householdService;

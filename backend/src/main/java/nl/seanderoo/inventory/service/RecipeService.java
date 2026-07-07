@@ -29,7 +29,9 @@ public class RecipeService {
     }
 
     public RecipeDTO addRecipe(RecipeDTO dto) {
-        validateCreateRequest(dto);
+        if (dto.getName() == null || dto.getName().isBlank()) {
+            throw new BadRequestException("Recipe name is required");
+        }
 
         Recipe recipe = Recipe.builder()
                 .name(dto.getName())
@@ -45,8 +47,7 @@ public class RecipeService {
 
         recipe.setIngredients(toIngredients(dto.getIngredients(), recipe));
 
-        Recipe saved = recipeRepository.save(recipe);
-        return toDTO(saved);
+        return toDTO(recipeRepository.save(recipe));
     }
 
     public RecipeDTO updateRecipe(Long id, RecipeDTO dto) {
@@ -65,8 +66,7 @@ public class RecipeService {
             recipe.getIngredients().addAll(toIngredients(dto.getIngredients(), recipe));
         }
 
-        Recipe updated = recipeRepository.save(recipe);
-        return toDTO(updated);
+        return toDTO(recipeRepository.save(recipe));
     }
 
     public void deleteRecipe(Long id) {
@@ -80,25 +80,7 @@ public class RecipeService {
     public List<RecipeDTO> getAllRecipes() {
         return recipeRepository.findAllByHouseholdId(currentHouseholdProvider.getHouseholdId()).stream()
                 .map(this::toDTO)
-                .collect(Collectors.toList());
-    }
-
-    public List<RecipeDTO> getRecipesByDifficulty(String difficulty) {
-        return recipeRepository.findByDifficultyAndHouseholdId(difficulty, currentHouseholdProvider.getHouseholdId()).stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
-    }
-
-    public List<RecipeDTO> getRecipesByCuisine(String cuisine) {
-        return recipeRepository.findByCuisineAndHouseholdId(cuisine, currentHouseholdProvider.getHouseholdId()).stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
-    }
-
-    public List<RecipeDTO> searchRecipes(String query) {
-        return recipeRepository.findByNameContainingIgnoreCaseAndHouseholdId(query, currentHouseholdProvider.getHouseholdId()).stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private Recipe findOwnedRecipe(Long id) {
@@ -106,7 +88,7 @@ public class RecipeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Recipe not found: " + id));
     }
 
-    private RecipeDTO toDTO(Recipe recipe) {
+    RecipeDTO toDTO(Recipe recipe) {
         return RecipeDTO.builder()
                 .id(recipe.getId())
                 .name(recipe.getName())
@@ -150,11 +132,5 @@ public class RecipeService {
                 .optional(ingredient.isOptional())
                 .notes(ingredient.getNotes())
                 .build();
-    }
-
-    private void validateCreateRequest(RecipeDTO dto) {
-        if (dto.getName() == null || dto.getName().isBlank()) {
-            throw new BadRequestException("Recipe name is required");
-        }
     }
 }
