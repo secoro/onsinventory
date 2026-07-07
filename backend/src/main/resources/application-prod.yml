@@ -63,5 +63,6 @@ app:
   frontend-url: ${APP_FRONTEND_URL:https://onsinventory.com}
   mail:
     from: ${APP_MAIL_FROM:noreply@onsinventory.com}
+    feedback-to: ${APP_MAIL_FEEDBACK_TO:onsinventory@onsinventory.com}
   resend:
     api-key: ${RESEND_API_KEY:}

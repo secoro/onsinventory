@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, KeyRound, LogOut, Moon, Settings, Sun, Trash2, UserPlus } from "lucide-react";
+import { KeyRound, LogOut, Menu, MessageSquare, Moon, Sun, Trash2, UserPlus, X } from "lucide-react";
 
 export default function AccountMenu({
   dark,
   onToggleDark,
   onInvite,
   onChangePassword,
+  onFeedback,
   onLogout,
   onDeleteAccount
 }: {
@@ -13,6 +14,7 @@ export default function AccountMenu({
   onToggleDark: () => void;
   onInvite: () => void;
   onChangePassword: () => void;
+  onFeedback: () => void;
   onLogout: () => void;
   onDeleteAccount: () => void;
 }) {
@@ -50,11 +52,11 @@ export default function AccountMenu({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+        aria-label={open ? "Close menu" : "Open menu"}
+        aria-expanded={open}
+        className="inline-flex items-center rounded-lg border border-slate-300 dark:border-slate-700 p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
       >
-        <Settings className="h-3.5 w-3.5" />
-        Account
-        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
+        {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
       {open && (
         <div className="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg">
@@ -69,6 +71,10 @@ export default function AccountMenu({
           <button type="button" onClick={select(onChangePassword)} className={itemClass}>
             <KeyRound className="h-3.5 w-3.5" />
             Change password
+          </button>
+          <button type="button" onClick={select(onFeedback)} className={itemClass}>
+            <MessageSquare className="h-3.5 w-3.5" />
+            Send feedback
           </button>
           <button type="button" onClick={select(onLogout)} className={itemClass}>
             <LogOut className="h-3.5 w-3.5" />
