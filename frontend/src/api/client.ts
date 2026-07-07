@@ -221,6 +221,13 @@ export function deleteAccount(password: string) {
   });
 }
 
+export function sendFeedback(message: string) {
+  return request<void>("/api/feedback", {
+    method: "POST",
+    body: JSON.stringify({ message })
+  });
+}
+
 type HouseholdResponse = {
   name: string;
   members: { username: string; firstName: string; lastName: string }[];

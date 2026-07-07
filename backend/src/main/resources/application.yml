@@ -1,6 +1,11 @@
 spring:
   application:
     name: onsinventory
+  jackson:
+    deserialization:
+      # Jackson 3 default rejects requests that omit primitive DTO fields
+      # (e.g. POST /api/inventory without "expired"); keep the Jackson 2 behavior
+      fail-on-null-for-primitives: false
   jpa:
     hibernate:
       ddl-auto: update
@@ -43,5 +48,6 @@ app:
   frontend-url: ${APP_FRONTEND_URL:http://localhost:5173}
   mail:
     from: ${APP_MAIL_FROM:noreply@onsinventory.com}
+    feedback-to: ${APP_MAIL_FEEDBACK_TO:onsinventory@onsinventory.com}
   resend:
     api-key: ${RESEND_API_KEY:}

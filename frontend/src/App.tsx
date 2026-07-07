@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { Calendar, Package, Sparkles } from "lucide-react";
 import { AuthResponse, clearToken, getAuthConfig, getMe, storeToken } from "./api/client";
 import AccountMenu from "./components/AccountMenu";
-import { ChangePasswordModal, DeleteAccountModal, InviteHouseholdModal } from "./components/modals";
+import { ChangePasswordModal, DeleteAccountModal, FeedbackModal, InviteHouseholdModal } from "./components/modals";
 import { useRecommendationsQuery } from "./hooks/queries";
 import { topRecommendation } from "./lib/recommendation";
 import DashboardPage from "./pages/Dashboard";
@@ -21,6 +21,7 @@ export default function App() {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showInviteHousehold, setShowInviteHousehold] = useState(false);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   const [urlAuthState] = useState(() => {
     const path = window.location.pathname;
@@ -152,6 +153,7 @@ export default function App() {
                 onToggleDark={() => setDark((d) => !d)}
                 onInvite={() => setShowInviteHousehold(true)}
                 onChangePassword={() => setShowChangePassword(true)}
+                onFeedback={() => setShowFeedback(true)}
                 onLogout={handleLogout}
                 onDeleteAccount={() => setShowDeleteAccount(true)}
               />
@@ -201,6 +203,8 @@ export default function App() {
       {showChangePassword && <ChangePasswordModal onClose={() => setShowChangePassword(false)} />}
 
       {showInviteHousehold && <InviteHouseholdModal onClose={() => setShowInviteHousehold(false)} />}
+
+      {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
 
       {showDeleteAccount && (
         <DeleteAccountModal

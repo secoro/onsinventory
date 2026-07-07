@@ -1,7 +1,7 @@
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Mail, Trash2 } from "lucide-react";
-import { changePassword, deleteAccount, inviteToHousehold } from "../api/client";
+import { Mail, MessageSquare, Trash2 } from "lucide-react";
+import { changePassword, deleteAccount, inviteToHousehold, sendFeedback } from "../api/client";
 import { inputClass } from "../lib/ui";
 
 export function ModalShell({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
@@ -83,6 +83,79 @@ export function InviteHouseholdModal({ onClose }: { onClose: () => void }) {
               className="flex-1 rounded-lg bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500 disabled:opacity-50"
             >
               {inviteMutation.isPending ? "Sending..." : "Send invite"}
+            </button>
+          </div>
+        </form>
+      )}
+    </ModalShell>
+  );
+}
+
+export function FeedbackModal({ onClose }: { onClose: () => void }) {
+  const [message, setMessage] = useState("");
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const feedbackMutation = useMutation({
+    mutationFn: () => sendFeedback(message.trim())
+  });
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!message.trim()) return;
+    feedbackMutation.mutate();
+  };
+
+  return (
+    <ModalShell>
+      <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
+        <MessageSquare className="h-4 w-4" />
+        Send feedback
+      </h3>
+      {feedbackMutation.isSuccess ? (
+        <div className="mt-4 space-y-4">
+          <p className="text-sm text-emerald-600 dark:text-emerald-300">Thanks! Your feedback has been sent.</p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full rounded-lg bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500"
+          >
+            Close
+          </button>
+        </div>
+      ) : (
+        <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            Tell us what's broken, missing, or could be better. Feedback is sent anonymously —
+            your name and email are not included.
+          </p>
+          <textarea
+            ref={inputRef}
+            required
+            rows={5}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            className={`${inputClass} resize-y`}
+            placeholder="Your feedback..."
+          />
+          {feedbackMutation.isError && (
+            <p className="text-sm text-rose-600 dark:text-rose-300">{feedbackMutation.error.message}</p>
+          )}
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={feedbackMutation.isPending || !message.trim()}
+              className="flex-1 rounded-lg bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500 disabled:opacity-50"
+            >
+              {feedbackMutation.isPending ? "Sending..." : "Send feedback"}
             </button>
           </div>
         </form>

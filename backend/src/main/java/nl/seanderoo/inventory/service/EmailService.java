@@ -18,14 +18,17 @@ public class EmailService {
     private final RestClient restClient;
     private final String fromAddress;
     private final String frontendUrl;
+    private final List<String> feedbackRecipients;
 
     public EmailService(
             @Value("${app.resend.api-key:}") String apiKey,
             @Value("${app.mail.from:noreply@onsinventory.com}") String fromAddress,
-            @Value("${app.frontend-url:https://onsinventory.com}") String frontendUrl
+            @Value("${app.frontend-url:https://onsinventory.com}") String frontendUrl,
+            @Value("${app.mail.feedback-to:onsinventory@onsinventory.com}") List<String> feedbackRecipients
     ) {
         this.fromAddress = fromAddress;
         this.frontendUrl = frontendUrl;
+        this.feedbackRecipients = feedbackRecipients;
         this.restClient = RestClient.builder()
                 .baseUrl("https://api.resend.com")
                 .defaultHeader("Authorization", "Bearer " + apiKey)
@@ -50,6 +53,14 @@ public class EmailService {
                 + button(link, "Join household")
                 + "<p style=\"margin:24px 0 0;color:#64748b;font-size:14px;\">This invite expires in 7 days.</p>";
         send(toEmail, inviterFirstName + " invited you to OnsInventory", wrap("You're invited", body, link));
+    }
+
+    public void sendFeedback(String message) {
+        String body = "<p style=\"margin:0 0 16px;\">A user shared feedback through the app. "
+                + "Feedback is anonymous, so no sender details are included.</p>"
+                + "<blockquote style=\"margin:0;padding:16px;background-color:#f1f5f9;border-left:4px solid #2563eb;"
+                + "border-radius:0 8px 8px 0;color:#0f172a;white-space:pre-wrap;\">" + escape(message) + "</blockquote>";
+        send(feedbackRecipients, "New anonymous feedback", wrap("New feedback", body, frontendUrl));
     }
 
     private static String escape(String value) {
@@ -97,12 +108,16 @@ public class EmailService {
     }
 
     private void send(String to, String subject, String html) {
+        send(List.of(to), subject, html);
+    }
+
+    private void send(List<String> to, String subject, String html) {
         try {
             restClient.post()
                     .uri("/emails")
                     .body(Map.of(
                             "from", fromAddress,
-                            "to", List.of(to),
+                            "to", to,
                             "subject", subject,
                             "html", html
                     ))
