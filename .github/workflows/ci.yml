@@ -36,6 +36,15 @@ jobs:
       - name: Test backend
         run: mvn -B test
 
+      # Requires the CODECOV_TOKEN repository secret (codecov.io -> repo settings)
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: backend/target/site/jacoco/jacoco.xml
+          flags: backend
+          fail_ci_if_error: false
+
   frontend:
     runs-on: ubuntu-latest
     defaults:
@@ -59,7 +68,16 @@ jobs:
         run: npm run lint
 
       - name: Test
-        run: npm run test
+        run: npm run test:coverage
+
+      # Requires the CODECOV_TOKEN repository secret (codecov.io -> repo settings)
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: frontend/coverage/lcov.info
+          flags: frontend
+          fail_ci_if_error: false
 
       - name: Build
         run: npm run build

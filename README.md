@@ -1,7 +1,6 @@
 # 🍳 OnsInventory
 
 [![Build Status](https://github.com/secoro/onsinventory/actions/workflows/ci.yml/badge.svg)](https://github.com/secoro/onsinventory/actions/workflows/ci.yml)
-[![Known Vulnerabilities](https://snyk.io/test/github/secoro/onsinventory/badge.svg)](https://snyk.io/test/github/secoro/onsinventory)
 [![Code Coverage](https://codecov.io/gh/secoro/onsinventory/graph/badge.svg)](https://app.codecov.io/gh/secoro/onsinventory)
 [![Dependency Status](https://img.shields.io/librariesio/github/secoro/onsinventory?label=dependencies)](https://libraries.io/github/secoro/onsinventory)
 [![npm package](https://img.shields.io/github/package-json/v/secoro/onsinventory?filename=frontend%2Fpackage.json&label=npm%20package)](frontend/package.json)
