@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -153,7 +153,7 @@ function groceryText(items: string[], weekDays: Date[]): string {
 
 // ─── Draggable recipe card ────────────────────────────────────────────────────
 
-function DraggableRecipeCard({ recipe }: { recipe: Recipe }) {
+function DraggableRecipeCard({ recipe, onTap }: { recipe: Recipe; onTap: () => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `recipe-${recipe.id}`,
     data: { recipe },
@@ -165,7 +165,8 @@ function DraggableRecipeCard({ recipe }: { recipe: Recipe }) {
       style={transform ? { transform: `translate3d(${transform.x}px,${transform.y}px,0)` } : undefined}
       {...listeners}
       {...attributes}
-      className={`rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/70 p-3 cursor-grab active:cursor-grabbing select-none transition ${
+      onClick={onTap}
+      className={`rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/70 p-3 cursor-grab active:cursor-grabbing select-none touch-manipulation transition ${
         isDragging ? "opacity-30" : "hover:bg-slate-50 dark:hover:bg-slate-700/70"
       }`}
     >
@@ -212,20 +213,19 @@ function DroppableDayColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col rounded-xl border transition-colors ${
+      className={`flex flex-col rounded-xl border transition-colors min-h-[4.5rem] sm:min-h-[10rem] ${
         isOver
           ? "border-brand-500 bg-brand-50 dark:bg-brand-600/15"
           : isToday
           ? "border-brand-500/40 dark:border-brand-600/40 bg-brand-50/50 dark:bg-slate-900"
           : "border-slate-200 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40"
       }`}
-      style={{ minHeight: "10rem" }}
     >
-      <div className={`shrink-0 px-2 py-2 border-b ${isToday ? "border-brand-400/30 dark:border-brand-600/30" : "border-slate-200 dark:border-slate-800"}`}>
+      <div className={`shrink-0 px-2 py-2 border-b flex items-baseline gap-2 sm:block ${isToday ? "border-brand-400/30 dark:border-brand-600/30" : "border-slate-200 dark:border-slate-800"}`}>
         <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
           {DAY_SHORT[dayIndex(date)]}
         </p>
-        <p className={`text-xl font-bold leading-none mt-0.5 ${isToday ? "text-brand-600 dark:text-brand-400" : "text-slate-900 dark:text-white"}`}>
+        <p className={`text-xl font-bold leading-none sm:mt-0.5 ${isToday ? "text-brand-600 dark:text-brand-400" : "text-slate-900 dark:text-white"}`}>
           {date.getDate()}
         </p>
       </div>
@@ -238,18 +238,20 @@ function DroppableDayColumn({
               <button
                 type="button"
                 onClick={() => onRemoveMeal(meal.id)}
-                className="shrink-0 rounded p-0.5 text-brand-500 dark:text-brand-300 opacity-0 group-hover:opacity-100 hover:bg-brand-200 dark:hover:bg-brand-500/30 transition"
+                aria-label={`Remove ${meal.recipeName}`}
+                className="shrink-0 rounded p-1 text-brand-500 dark:text-brand-300 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-brand-200 dark:hover:bg-brand-500/30 transition"
               >
-                <X className="h-2.5 w-2.5" />
+                <X className="h-3 w-3" />
               </button>
             </div>
             <div className="flex items-center gap-1 mt-1">
               <button
                 type="button"
                 onClick={() => onUpdateServings(meal.id, Math.max(1, meal.servings - 1))}
-                className="rounded p-0.5 text-brand-600 dark:text-brand-300 hover:bg-brand-200 dark:hover:bg-brand-500/30 transition"
+                aria-label="Fewer servings"
+                className="rounded p-1 text-brand-600 dark:text-brand-300 hover:bg-brand-200 dark:hover:bg-brand-500/30 transition"
               >
-                <Minus className="h-2.5 w-2.5" />
+                <Minus className="h-3 w-3" />
               </button>
               <span className="text-[10px] text-brand-700 dark:text-brand-200 min-w-[1.75rem] text-center tabular-nums">
                 {meal.servings}p
@@ -257,9 +259,10 @@ function DroppableDayColumn({
               <button
                 type="button"
                 onClick={() => onUpdateServings(meal.id, meal.servings + 1)}
-                className="rounded p-0.5 text-brand-600 dark:text-brand-300 hover:bg-brand-200 dark:hover:bg-brand-500/30 transition"
+                aria-label="More servings"
+                className="rounded p-1 text-brand-600 dark:text-brand-300 hover:bg-brand-200 dark:hover:bg-brand-500/30 transition"
               >
-                <Plus className="h-2.5 w-2.5" />
+                <Plus className="h-3 w-3" />
               </button>
             </div>
           </div>
@@ -270,7 +273,10 @@ function DroppableDayColumn({
           </div>
         )}
         {meals.length === 0 && !isOver && (
-          <p className="text-[10px] text-slate-300 dark:text-slate-700 text-center pt-2 select-none">Drop recipe</p>
+          <p className="text-[10px] text-slate-300 dark:text-slate-700 text-center pt-2 select-none">
+            <span className="sm:hidden">Nothing planned</span>
+            <span className="hidden sm:inline">Drop recipe</span>
+          </p>
         )}
       </div>
     </div>
@@ -384,6 +390,74 @@ function GroceryModal({
   );
 }
 
+// ─── Day picker modal (tap-to-plan, the touch alternative to drag-and-drop) ──
+
+function DayPickerModal({
+  recipe,
+  weekDays,
+  mealPlan,
+  todayKey,
+  onPick,
+  onClose,
+}: {
+  recipe: Recipe;
+  weekDays: Date[];
+  mealPlan: MealPlan;
+  todayKey: string;
+  onPick: (dateKey: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 dark:bg-slate-950/80 p-4">
+      <div className="w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 max-h-[85vh] overflow-y-auto">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Plan meal</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 truncate">{recipe.name}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="shrink-0 rounded-md border border-slate-300 dark:border-slate-600 p-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="mt-4 space-y-1.5">
+          {weekDays.map((date) => {
+            const key = toDateKey(date);
+            const count = (mealPlan[key] ?? []).length;
+            const isToday = key === todayKey;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => onPick(key)}
+                className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left text-sm transition ${
+                  isToday
+                    ? "border-brand-500/50 bg-brand-50 dark:bg-brand-600/15 text-brand-700 dark:text-brand-100"
+                    : "border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                }`}
+              >
+                <span className="font-medium">
+                  {DAY_SHORT[dayIndex(date)]} {date.getDate()} {MONTH_SHORT[date.getMonth()]}
+                  {isToday && <span className="ml-2 text-xs font-normal">today</span>}
+                </span>
+                {count > 0 && (
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {count} {count === 1 ? "meal" : "meals"}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main page component ──────────────────────────────────────────────────────
 
 export default function MealPlannerPage() {
@@ -402,6 +476,9 @@ export default function MealPlannerPage() {
   const [recipeSearch, setRecipeSearch] = useState("");
   const [showGrocery, setShowGrocery] = useState(false);
   const [activeRecipe, setActiveRecipe] = useState<Recipe | null>(null);
+  const [planningRecipe, setPlanningRecipe] = useState<Recipe | null>(null);
+  // A drag fires a click on the source card when it ends - don't treat it as a tap
+  const dragHappenedRef = useRef(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -430,18 +507,7 @@ export default function MealPlannerPage() {
     [mealPlan, recipes, weekDays, inventory]
   );
 
-  function handleDragStart(event: DragStartEvent) {
-    setActiveRecipe((event.active.data.current?.recipe as Recipe) ?? null);
-  }
-
-  function handleDragEnd(event: DragEndEvent) {
-    setActiveRecipe(null);
-    const { active, over } = event;
-    if (!over) return;
-    const recipe = active.data.current?.recipe as Recipe | undefined;
-    if (!recipe) return;
-    const dateKey = String(over.id);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
+  function addMeal(dateKey: string, recipe: Recipe) {
     setMealPlan((prev) => ({
       ...prev,
       [dateKey]: [
@@ -454,6 +520,28 @@ export default function MealPlannerPage() {
         },
       ],
     }));
+  }
+
+  function handleRecipeTap(recipe: Recipe) {
+    if (dragHappenedRef.current) return;
+    setPlanningRecipe(recipe);
+  }
+
+  function handleDragStart(event: DragStartEvent) {
+    dragHappenedRef.current = true;
+    setActiveRecipe((event.active.data.current?.recipe as Recipe) ?? null);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    setActiveRecipe(null);
+    setTimeout(() => { dragHappenedRef.current = false; }, 100);
+    const { active, over } = event;
+    if (!over) return;
+    const recipe = active.data.current?.recipe as Recipe | undefined;
+    if (!recipe) return;
+    const dateKey = String(over.id);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
+    addMeal(dateKey, recipe);
   }
 
   function removeMeal(dateKey: string, mealId: string) {
@@ -523,8 +611,8 @@ export default function MealPlannerPage() {
             </button>
           </div>
 
-          <div className="mt-5 overflow-x-auto">
-            <div className="grid grid-cols-7 gap-2 min-w-[560px]">
+          <div className="mt-5 sm:overflow-x-auto">
+            <div className="grid gap-2 sm:grid-cols-7 sm:min-w-[560px]">
               {weekDays.map((date) => {
                 const key = toDateKey(date);
                 return (
@@ -545,14 +633,17 @@ export default function MealPlannerPage() {
         {/* ── Recipe panel ── */}
         <article className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-6">
           <h2 className="text-xl font-semibold">Recipes</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Drag a recipe onto a day to plan it</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            <span className="sm:hidden">Tap a recipe to plan it</span>
+            <span className="hidden sm:inline">Drag a recipe onto a day, or tap one to pick a day</span>
+          </p>
 
           <div className="relative mt-4">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               value={recipeSearch}
               onChange={(e) => setRecipeSearch(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 py-2 pl-9 pr-8 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-brand-600 focus:outline-none"
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 py-2 pl-9 pr-8 text-base sm:text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-brand-600 focus:outline-none"
               placeholder="Search recipes..."
             />
             {recipeSearch && (
@@ -574,7 +665,9 @@ export default function MealPlannerPage() {
             ) : filteredRecipes.length === 0 ? (
               <p className="text-sm text-slate-500 dark:text-slate-400 py-6 text-center">No recipes match your search.</p>
             ) : (
-              filteredRecipes.map((recipe) => <DraggableRecipeCard key={recipe.id} recipe={recipe} />)
+              filteredRecipes.map((recipe) => (
+                <DraggableRecipeCard key={recipe.id} recipe={recipe} onTap={() => handleRecipeTap(recipe)} />
+              ))
             )}
           </div>
         </article>
@@ -584,6 +677,20 @@ export default function MealPlannerPage() {
 
       {showGrocery && (
         <GroceryModal items={groceryItems} weekDays={weekDays} onClose={() => setShowGrocery(false)} />
+      )}
+
+      {planningRecipe && (
+        <DayPickerModal
+          recipe={planningRecipe}
+          weekDays={weekDays}
+          mealPlan={mealPlan}
+          todayKey={todayKey}
+          onPick={(dateKey) => {
+            addMeal(dateKey, planningRecipe);
+            setPlanningRecipe(null);
+          }}
+          onClose={() => setPlanningRecipe(null)}
+        />
       )}
     </DndContext>
   );
