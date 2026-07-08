@@ -114,7 +114,7 @@ export default function RecipeDetailModal({ recipe, onClose }: { recipe: Recipe;
                     className={`shrink-0 rounded p-0.5 transition ${
                       skipped
                         ? "text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200"
-                        : "opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400"
+                        : "sm:opacity-0 sm:group-hover:opacity-100 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400"
                     }`}
                   >
                     {skipped ? <Undo2 className="h-3 w-3" /> : <X className="h-3 w-3" />}

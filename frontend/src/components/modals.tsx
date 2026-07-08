@@ -8,8 +8,8 @@ export function ModalShell({ children, wide = false }: { children: ReactNode; wi
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-slate-950/80 p-4">
       <div
-        className={`w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 ${
-          wide ? "max-h-[85vh] max-w-2xl overflow-y-auto" : "max-w-sm"
+        className={`w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 max-h-[85vh] overflow-y-auto ${
+          wide ? "max-w-2xl" : "max-w-sm"
         }`}
       >
         {children}
