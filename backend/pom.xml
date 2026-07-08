@@ -14,7 +14,7 @@
 
     <groupId>nl.seanderoo</groupId>
     <artifactId>onsinventory-backend</artifactId>
-    <version>1.1.2-SNAPSHOT</version>
+    <version>1.2.0</version>
     <name>OnsInventory</name>
     <description>Pantry, fridge, and freezer inventory tracking with recipe recommendations</description>
 
