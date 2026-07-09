@@ -2,12 +2,14 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Undo2, UtensilsCrossed, X } from "lucide-react";
 import { checkRecipeAvailability, cookRecipe } from "../api/client";
+import { difficultyLabel, useI18n } from "../i18n";
 import { parseInstructionSteps } from "../lib/recipeText";
 import { CookResult, Recipe } from "../types";
 import { ModalShell } from "./modals";
 
 // Mount with key={recipe.id} so servings/skips/cook state reset per recipe.
 export default function RecipeDetailModal({ recipe, onClose }: { recipe: Recipe; onClose: () => void }) {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const baseServings = recipe.servings ?? 1;
   const [servings, setServings] = useState(baseServings);
@@ -48,7 +50,7 @@ export default function RecipeDetailModal({ recipe, onClose }: { recipe: Recipe;
         <div>
           <h3 className="text-2xl font-semibold text-slate-900 dark:text-white">{recipe.name}</h3>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-            {recipe.cuisine || "Unknown cuisine"} · {recipe.difficulty || "unknown"}
+            {recipe.cuisine || t("recipes.unknownCuisine")} · {difficultyLabel(t, recipe.difficulty)}
           </p>
         </div>
         <button
@@ -56,12 +58,12 @@ export default function RecipeDetailModal({ recipe, onClose }: { recipe: Recipe;
           onClick={onClose}
           className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-1 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
         >
-          Close
+          {t("common.close")}
         </button>
       </div>
 
       <div className="mt-4 flex items-center gap-3">
-        <span className="text-sm text-slate-600 dark:text-slate-300">Servings:</span>
+        <span className="text-sm text-slate-600 dark:text-slate-300">{t("detail.servings")}</span>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -81,13 +83,13 @@ export default function RecipeDetailModal({ recipe, onClose }: { recipe: Recipe;
           </button>
         </div>
         {servings !== baseServings && (
-          <span className="text-xs text-slate-500 dark:text-slate-500">(recipe is for {baseServings})</span>
+          <span className="text-xs text-slate-500 dark:text-slate-500">{t("detail.baseServings", { count: baseServings })}</span>
         )}
       </div>
 
       <div className="mt-5 grid gap-5 md:grid-cols-2">
         <div>
-          <h4 className="text-sm font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-100">Ingredients</h4>
+          <h4 className="text-sm font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-100">{t("detail.ingredients")}</h4>
           <ul className="mt-2 space-y-1 text-sm">
             {(recipe.ingredients ?? []).map((ingredient, index) => {
               const scaled = ingredient.quantity * scale;
@@ -110,7 +112,7 @@ export default function RecipeDetailModal({ recipe, onClose }: { recipe: Recipe;
                   <button
                     type="button"
                     onClick={toggle}
-                    title={skipped ? "Add back" : "Skip for this cook"}
+                    title={skipped ? t("detail.addBack") : t("detail.skip")}
                     className={`shrink-0 rounded p-0.5 transition ${
                       skipped
                         ? "text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200"
@@ -125,7 +127,7 @@ export default function RecipeDetailModal({ recipe, onClose }: { recipe: Recipe;
           </ul>
         </div>
         <div>
-          <h4 className="text-sm font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-100">Step-by-step</h4>
+          <h4 className="text-sm font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-100">{t("detail.steps")}</h4>
           <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm text-slate-700 dark:text-slate-200">
             {parseInstructionSteps(recipe.instructions).map((step, index) => (
               <li key={`${index}-${step}`}>{step}</li>
@@ -139,7 +141,7 @@ export default function RecipeDetailModal({ recipe, onClose }: { recipe: Recipe;
           <div className="space-y-3 text-sm">
             {cookResult.consumed.length > 0 && (
               <div>
-                <p className="font-medium text-emerald-600 dark:text-emerald-300">Inventory updated:</p>
+                <p className="font-medium text-emerald-600 dark:text-emerald-300">{t("detail.inventoryUpdated")}</p>
                 <ul className="mt-1 space-y-1 text-slate-600 dark:text-slate-300">
                   {cookResult.consumed.map((line) => <li key={line}>· {line}</li>)}
                 </ul>
@@ -147,7 +149,7 @@ export default function RecipeDetailModal({ recipe, onClose }: { recipe: Recipe;
             )}
             {cookResult.unmatched.length > 0 && (
               <div>
-                <p className="font-medium text-amber-600 dark:text-amber-300">Not found in inventory:</p>
+                <p className="font-medium text-amber-600 dark:text-amber-300">{t("detail.notFoundInInventory")}</p>
                 <ul className="mt-1 space-y-1 text-slate-600 dark:text-slate-300">
                   {cookResult.unmatched.map((line) => <li key={line}>· {line}</li>)}
                 </ul>
@@ -163,25 +165,25 @@ export default function RecipeDetailModal({ recipe, onClose }: { recipe: Recipe;
               className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 font-medium text-white transition hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <UtensilsCrossed className="h-4 w-4" />
-              {cookRecipeMutation.isPending ? "Updating inventory..." : "Cooked this!"}
+              {cookRecipeMutation.isPending ? t("detail.cooking") : t("detail.cooked")}
             </button>
             {(filteredInsufficient.length > 0 || filteredMissing.length > 0) && (
               <div className="space-y-1 text-sm">
                 {filteredInsufficient.map((line) => (
-                  <p key={line} className="text-amber-600 dark:text-amber-300">· Not enough: {line}</p>
+                  <p key={line} className="text-amber-600 dark:text-amber-300">· {t("recommendations.notEnough", { items: line })}</p>
                 ))}
                 {filteredMissing.map((line) => (
-                  <p key={line} className="text-rose-600 dark:text-rose-300">· Missing: {line}</p>
+                  <p key={line} className="text-rose-600 dark:text-rose-300">· {t("recommendations.missing", { items: line })}</p>
                 ))}
                 <p className="text-slate-500 dark:text-slate-400 text-xs pt-1">
-                  Click × next to an ingredient above to skip it for this cook.
+                  {t("detail.skipHint")}
                 </p>
               </div>
             )}
           </div>
         )}
         {cookRecipeMutation.isError && (
-          <p className="mt-2 text-sm text-rose-600 dark:text-rose-300">Could not update inventory. Try again.</p>
+          <p className="mt-2 text-sm text-rose-600 dark:text-rose-300">{t("detail.error.cook")}</p>
         )}
       </div>
     </ModalShell>

@@ -12,6 +12,7 @@ import {
 } from "@dnd-kit/core";
 import { ChevronLeft, ChevronRight, Check, Copy, GripVertical, Minus, Plus, Search, ShoppingCart, X } from "lucide-react";
 import { useInventoryQuery, useRecipesQuery } from "../hooks/queries";
+import { difficultyLabel, shortMonth, shortWeekday, useI18n, type Translator } from "../i18n";
 import { InventoryItem, Recipe } from "../types";
 
 // ─── Local types ────────────────────────────────────────────────────────────
@@ -27,8 +28,6 @@ type MealPlan = Record<string, PlannedMeal[]>; // key: YYYY-MM-DD
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const STORAGE_KEY = "ons_meal_plan";
 
 // ─── Date helpers ────────────────────────────────────────────────────────────
@@ -52,11 +51,6 @@ function getWeekDays(offset: number): Date[] {
     d.setDate(monday.getDate() + i);
     return d;
   });
-}
-
-function dayIndex(date: Date): number {
-  const dow = date.getDay();
-  return dow === 0 ? 6 : dow - 1; // 0 = Mon, 6 = Sun
 }
 
 // ─── Grocery helpers ─────────────────────────────────────────────────────────
@@ -144,16 +138,17 @@ function buildGroceryList(
   return result.sort((a, b) => a.localeCompare(b));
 }
 
-function groceryText(items: string[], weekDays: Date[]): string {
+function groceryText(items: string[], weekDays: Date[], t: Translator, locale: string): string {
   const s = weekDays[0], e = weekDays[6];
-  const header = `Grocery list ${s.getDate()} ${MONTH_SHORT[s.getMonth()]} – ${e.getDate()} ${MONTH_SHORT[e.getMonth()]} ${e.getFullYear()}`;
-  if (items.length === 0) return `${header}\n\nYou're well stocked — nothing to buy!`;
+  const header = `${t("planner.grocery")} ${s.getDate()} ${shortMonth(s, locale)} – ${e.getDate()} ${shortMonth(e, locale)} ${e.getFullYear()}`;
+  if (items.length === 0) return `${header}\n\n${t("planner.wellStocked")}`;
   return `${header}\n\n${items.map((name) => `• ${name}`).join("\n")}`;
 }
 
 // ─── Draggable recipe card ────────────────────────────────────────────────────
 
 function DraggableRecipeCard({ recipe, onTap }: { recipe: Recipe; onTap: () => void }) {
+  const { t } = useI18n();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `recipe-${recipe.id}`,
     data: { recipe },
@@ -176,7 +171,7 @@ function DraggableRecipeCard({ recipe, onTap }: { recipe: Recipe; onTap: () => v
           <p className="font-medium text-slate-900 dark:text-white text-sm leading-tight">{recipe.name}</p>
           {(recipe.cuisine || recipe.difficulty) && (
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {[recipe.cuisine, recipe.difficulty].filter(Boolean).join(" · ")}
+              {[recipe.cuisine, recipe.difficulty && difficultyLabel(t, recipe.difficulty)].filter(Boolean).join(" · ")}
             </p>
           )}
         </div>
@@ -208,6 +203,7 @@ function DroppableDayColumn({
   onRemoveMeal: (id: string) => void;
   onUpdateServings: (id: string, servings: number) => void;
 }) {
+  const { t, locale } = useI18n();
   const { setNodeRef, isOver } = useDroppable({ id: toDateKey(date) });
 
   return (
@@ -223,7 +219,7 @@ function DroppableDayColumn({
     >
       <div className={`shrink-0 px-2 py-2 border-b flex items-baseline gap-2 sm:block ${isToday ? "border-brand-400/30 dark:border-brand-600/30" : "border-slate-200 dark:border-slate-800"}`}>
         <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
-          {DAY_SHORT[dayIndex(date)]}
+          {shortWeekday(date, locale)}
         </p>
         <p className={`text-xl font-bold leading-none sm:mt-0.5 ${isToday ? "text-brand-600 dark:text-brand-400" : "text-slate-900 dark:text-white"}`}>
           {date.getDate()}
@@ -238,7 +234,7 @@ function DroppableDayColumn({
               <button
                 type="button"
                 onClick={() => onRemoveMeal(meal.id)}
-                aria-label={`Remove ${meal.recipeName}`}
+                aria-label={t("planner.remove", { name: meal.recipeName })}
                 className="shrink-0 rounded p-1 text-brand-500 dark:text-brand-300 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-brand-200 dark:hover:bg-brand-500/30 transition"
               >
                 <X className="h-3 w-3" />
@@ -248,7 +244,7 @@ function DroppableDayColumn({
               <button
                 type="button"
                 onClick={() => onUpdateServings(meal.id, Math.max(1, meal.servings - 1))}
-                aria-label="Fewer servings"
+                aria-label={t("planner.fewerServings")}
                 className="rounded p-1 text-brand-600 dark:text-brand-300 hover:bg-brand-200 dark:hover:bg-brand-500/30 transition"
               >
                 <Minus className="h-3 w-3" />
@@ -259,7 +255,7 @@ function DroppableDayColumn({
               <button
                 type="button"
                 onClick={() => onUpdateServings(meal.id, meal.servings + 1)}
-                aria-label="More servings"
+                aria-label={t("planner.moreServings")}
                 className="rounded p-1 text-brand-600 dark:text-brand-300 hover:bg-brand-200 dark:hover:bg-brand-500/30 transition"
               >
                 <Plus className="h-3 w-3" />
@@ -269,13 +265,13 @@ function DroppableDayColumn({
         ))}
         {isOver && (
           <div className="rounded-lg border border-dashed border-brand-500/60 py-2 text-center text-[10px] text-brand-500 dark:text-brand-400">
-            Drop here
+            {t("planner.dropHere")}
           </div>
         )}
         {meals.length === 0 && !isOver && (
           <p className="text-[10px] text-slate-300 dark:text-slate-700 text-center pt-2 select-none">
-            <span className="sm:hidden">Nothing planned</span>
-            <span className="hidden sm:inline">Drop recipe</span>
+            <span className="sm:hidden">{t("planner.nothingPlanned")}</span>
+            <span className="hidden sm:inline">{t("planner.dropRecipe")}</span>
           </p>
         )}
       </div>
@@ -294,10 +290,11 @@ function GroceryModal({
   weekDays: Date[];
   onClose: () => void;
 }) {
+  const { t, locale } = useI18n();
   const [copied, setCopied] = useState(false);
   const [removed, setRemoved] = useState<Set<string>>(new Set());
   const visibleItems = items.filter((name) => !removed.has(name));
-  const text = groceryText(visibleItems, weekDays);
+  const text = groceryText(visibleItems, weekDays, t, locale);
 
   const removeItem = (name: string) => {
     setRemoved((prev) => new Set(prev).add(name));
@@ -324,9 +321,9 @@ function GroceryModal({
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 flex flex-col max-h-[85vh]">
         <div className="flex items-start justify-between gap-4 shrink-0">
           <div>
-            <h3 className="text-xl font-semibold text-slate-900 dark:text-white">Grocery list</h3>
+            <h3 className="text-xl font-semibold text-slate-900 dark:text-white">{t("planner.grocery")}</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-              {s.getDate()} {MONTH_SHORT[s.getMonth()]} – {e.getDate()} {MONTH_SHORT[e.getMonth()]} {e.getFullYear()}
+              {s.getDate()} {shortMonth(s, locale)} – {e.getDate()} {shortMonth(e, locale)} {e.getFullYear()}
             </p>
           </div>
           <button
@@ -334,13 +331,13 @@ function GroceryModal({
             onClick={onClose}
             className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-1 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
-            Close
+            {t("common.close")}
           </button>
         </div>
 
         <div className="mt-4 flex-1 overflow-y-auto">
           {visibleItems.length === 0 ? (
-            <p className="text-sm text-emerald-600 dark:text-emerald-400">You're well stocked — nothing to buy!</p>
+            <p className="text-sm text-emerald-600 dark:text-emerald-400">{t("planner.wellStocked")}</p>
           ) : (
             <ul className="space-y-1.5">
               {visibleItems.map((name) => (
@@ -353,7 +350,7 @@ function GroceryModal({
                   <button
                     type="button"
                     onClick={() => removeItem(name)}
-                    title="Remove from list"
+                    title={t("planner.removeFromList")}
                     className="shrink-0 rounded p-1 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200 transition"
                   >
                     <X className="h-3.5 w-3.5" />
@@ -382,7 +379,7 @@ function GroceryModal({
             className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
           >
             {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
-            {copied ? "Copied!" : "Copy"}
+            {copied ? t("planner.copied") : t("planner.copy")}
           </button>
         </div>
       </div>
@@ -407,18 +404,19 @@ function DayPickerModal({
   onPick: (dateKey: string) => void;
   onClose: () => void;
 }) {
+  const { t, locale } = useI18n();
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 dark:bg-slate-950/80 p-4">
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 max-h-[85vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Plan meal</h3>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{t("planner.planMeal")}</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 truncate">{recipe.name}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("common.close")}
             className="shrink-0 rounded-md border border-slate-300 dark:border-slate-600 p-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             <X className="h-4 w-4" />
@@ -441,12 +439,12 @@ function DayPickerModal({
                 }`}
               >
                 <span className="font-medium">
-                  {DAY_SHORT[dayIndex(date)]} {date.getDate()} {MONTH_SHORT[date.getMonth()]}
-                  {isToday && <span className="ml-2 text-xs font-normal">today</span>}
+                  {shortWeekday(date, locale)} {date.getDate()} {shortMonth(date, locale)}
+                  {isToday && <span className="ml-2 text-xs font-normal">{t("planner.todayTag")}</span>}
                 </span>
                 {count > 0 && (
                   <span className="text-xs text-slate-500 dark:text-slate-400">
-                    {count} {count === 1 ? "meal" : "meals"}
+                    {count} {count === 1 ? t("planner.meal") : t("planner.meals")}
                   </span>
                 )}
               </button>
@@ -461,6 +459,7 @@ function DayPickerModal({
 // ─── Main page component ──────────────────────────────────────────────────────
 
 export default function MealPlannerPage() {
+  const { t, locale } = useI18n();
   const recipesQuery = useRecipesQuery();
   const inventoryQuery = useInventoryQuery();
   const recipes = useMemo(() => recipesQuery.data ?? [], [recipesQuery.data]);
@@ -561,8 +560,8 @@ export default function MealPlannerPage() {
   const weekLabel = (() => {
     const s = weekDays[0], e = weekDays[6];
     return s.getMonth() === e.getMonth()
-      ? `${MONTH_SHORT[s.getMonth()]} ${s.getDate()}–${e.getDate()}, ${s.getFullYear()}`
-      : `${MONTH_SHORT[s.getMonth()]} ${s.getDate()} – ${MONTH_SHORT[e.getMonth()]} ${e.getDate()}, ${e.getFullYear()}`;
+      ? `${shortMonth(s, locale)} ${s.getDate()}–${e.getDate()}, ${s.getFullYear()}`
+      : `${shortMonth(s, locale)} ${s.getDate()} – ${shortMonth(e, locale)} ${e.getDate()}, ${e.getFullYear()}`;
   })();
 
   return (
@@ -572,7 +571,7 @@ export default function MealPlannerPage() {
         {/* ── Calendar ── */}
         <article className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-6">
           <div className="flex flex-wrap items-center gap-3 justify-between">
-            <h2 className="text-xl font-semibold">Meal plan</h2>
+            <h2 className="text-xl font-semibold">{t("planner.title")}</h2>
 
             <div className="flex items-center gap-1.5">
               <button
@@ -596,7 +595,7 @@ export default function MealPlannerPage() {
                   onClick={() => setWeekOffset(0)}
                   className="rounded-lg border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
                 >
-                  Today
+                  {t("planner.today")}
                 </button>
               )}
             </div>
@@ -607,7 +606,7 @@ export default function MealPlannerPage() {
               className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500 transition"
             >
               <ShoppingCart className="h-4 w-4" />
-              Grocery list
+              {t("planner.grocery")}
             </button>
           </div>
 
@@ -632,10 +631,10 @@ export default function MealPlannerPage() {
 
         {/* ── Recipe panel ── */}
         <article className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-6">
-          <h2 className="text-xl font-semibold">Recipes</h2>
+          <h2 className="text-xl font-semibold">{t("planner.recipes")}</h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            <span className="sm:hidden">Tap a recipe to plan it</span>
-            <span className="hidden sm:inline">Drag a recipe onto a day, or tap one to pick a day</span>
+            <span className="sm:hidden">{t("planner.tapHint")}</span>
+            <span className="hidden sm:inline">{t("planner.dragHint")}</span>
           </p>
 
           <div className="relative mt-4">
@@ -644,7 +643,7 @@ export default function MealPlannerPage() {
               value={recipeSearch}
               onChange={(e) => setRecipeSearch(e.target.value)}
               className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 py-2 pl-9 pr-8 text-base sm:text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-brand-600 focus:outline-none"
-              placeholder="Search recipes..."
+              placeholder={t("planner.searchRecipes")}
             />
             {recipeSearch && (
               <button
@@ -660,10 +659,10 @@ export default function MealPlannerPage() {
           <div className="mt-3 space-y-2 overflow-y-auto max-h-[60vh]">
             {recipes.length === 0 ? (
               <p className="text-sm text-slate-500 dark:text-slate-400 py-6 text-center">
-                No recipes yet. Add some on the Inventory page first.
+                {t("planner.noRecipes")}
               </p>
             ) : filteredRecipes.length === 0 ? (
-              <p className="text-sm text-slate-500 dark:text-slate-400 py-6 text-center">No recipes match your search.</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 py-6 text-center">{t("planner.noSearchMatch")}</p>
             ) : (
               filteredRecipes.map((recipe) => (
                 <DraggableRecipeCard key={recipe.id} recipe={recipe} onTap={() => handleRecipeTap(recipe)} />

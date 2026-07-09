@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Refrigerator, Trash2, Undo2, X } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { addInventoryItem, deleteInventoryItem, updateInventoryItem } from "../api/client";
+import { useI18n } from "../i18n";
 import { isExpiring } from "../lib/inventory";
 import { inputClass } from "../lib/ui";
 import { InventoryItem, Location } from "../types";
@@ -43,6 +44,7 @@ export default function InventorySection({
   expiryFilter: "expiring" | "expired" | null;
   onClearExpiryFilter: () => void;
 }) {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [formState, setFormState] = useState<ItemFormState>(initialForm);
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
@@ -162,7 +164,7 @@ export default function InventorySection({
       <article className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <h2 className="text-xl font-semibold">Inventory by location</h2>
+            <h2 className="text-xl font-semibold">{t("inventory.title")}</h2>
             {expiryFilter && !searchQuery && (
               <button
                 type="button"
@@ -173,14 +175,14 @@ export default function InventorySection({
                     : "bg-rose-500/20 text-rose-600 dark:text-rose-200 hover:bg-rose-500/30"
                 }`}
               >
-                {expiryFilter === "expiring" ? "Expiring soon" : "Already expired"}
+                {expiryFilter === "expiring" ? t("metrics.expiringSoon") : t("metrics.expired")}
                 <X className="h-3 w-3" />
               </button>
             )}
           </div>
           {!searchQuery && (
             <div className="flex flex-wrap gap-2">
-              {["All", ...locations.map((location) => location.name)].map((name) => (
+              {[{ name: "All", label: t("inventory.all") }, ...locations.map((location) => ({ name: location.name, label: location.name }))].map(({ name, label }) => (
                 <button
                   key={name}
                   type="button"
@@ -191,7 +193,7 @@ export default function InventorySection({
                       : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                   }`}
                 >
-                  {name}
+                  {label}
                 </button>
               ))}
             </div>
@@ -200,7 +202,7 @@ export default function InventorySection({
 
         <div className="mt-4 space-y-3">
           {filteredInventory.length === 0 ? (
-            <p className="rounded-lg bg-slate-50 dark:bg-slate-800/70 p-4 text-slate-600 dark:text-slate-300">No items in this location yet.</p>
+            <p className="rounded-lg bg-slate-50 dark:bg-slate-800/70 p-4 text-slate-600 dark:text-slate-300">{t("inventory.empty")}</p>
           ) : (
             paginatedInventory.map((item) => (
               <div key={item.id} className="rounded-xl bg-slate-50 dark:bg-slate-800/70 p-4">
@@ -220,7 +222,7 @@ export default function InventorySection({
                           : "bg-emerald-500/20 text-emerald-700 dark:text-emerald-200"
                     }`}
                   >
-                    {item.expired ? "Expired" : isExpiring(item) ? "Expiring" : "Fresh"}
+                    {item.expired ? t("inventory.status.expired") : isExpiring(item) ? t("inventory.status.expiring") : t("inventory.status.fresh")}
                   </span>
                 </div>
                 <div className="mt-3 flex gap-2">
@@ -230,7 +232,7 @@ export default function InventorySection({
                     className="inline-flex items-center gap-1 rounded-md bg-slate-200 dark:bg-slate-700 px-2 py-1 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600"
                   >
                     <Pencil className="h-3 w-3" />
-                    Edit
+                    {t("common.edit")}
                   </button>
                   <button
                     type="button"
@@ -238,7 +240,7 @@ export default function InventorySection({
                     className="inline-flex items-center gap-1 rounded-md bg-rose-500/20 px-2 py-1 text-xs text-rose-600 dark:text-rose-200 hover:bg-rose-500/30"
                   >
                     <Trash2 className="h-3 w-3" />
-                    Delete
+                    {t("common.delete")}
                   </button>
                 </div>
               </div>
@@ -249,7 +251,7 @@ export default function InventorySection({
         {filteredInventory.length > 0 && (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 dark:border-slate-700 pt-4 text-sm text-slate-600 dark:text-slate-300">
             <div className="flex items-center gap-2">
-              <span>Items per page</span>
+              <span>{t("pagination.itemsPerPage")}</span>
               <select
                 value={pageSize}
                 onChange={(event) => setPageSize(Number(event.target.value))}
@@ -270,10 +272,10 @@ export default function InventorySection({
                 disabled={currentPage === 1}
                 className="rounded-md border border-slate-300 dark:border-slate-600 px-2 py-1 text-slate-700 dark:text-slate-200 disabled:opacity-40"
               >
-                Previous
+                {t("pagination.previous")}
               </button>
               <span>
-                Page {currentPage} / {totalPages}
+                {t("pagination.page", { current: currentPage, total: totalPages })}
               </span>
               <button
                 type="button"
@@ -281,7 +283,7 @@ export default function InventorySection({
                 disabled={currentPage === totalPages}
                 className="rounded-md border border-slate-300 dark:border-slate-600 px-2 py-1 text-slate-700 dark:text-slate-200 disabled:opacity-40"
               >
-                Next
+                {t("pagination.next")}
               </button>
             </div>
           </div>
@@ -292,7 +294,7 @@ export default function InventorySection({
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-6">
           <h2 className="flex items-center gap-2 text-xl font-semibold">
             <Refrigerator className="h-5 w-5" />
-            {editingItemId !== null ? "Edit inventory item" : "Add inventory item"}
+            {editingItemId !== null ? t("inventory.editItem") : t("inventory.addItem")}
           </h2>
           <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
             <input
@@ -300,7 +302,7 @@ export default function InventorySection({
               value={formState.name}
               onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))}
               className={inputClass}
-              placeholder="Item name"
+              placeholder={t("inventory.form.name")}
             />
             <div className="grid grid-cols-2 gap-3">
               <input
@@ -308,7 +310,7 @@ export default function InventorySection({
                 value={formState.category}
                 onChange={(event) => setFormState((prev) => ({ ...prev, category: event.target.value }))}
                 className={inputClass}
-                placeholder="Category"
+                placeholder={t("inventory.form.category")}
               />
               <select
                 value={formState.location}
@@ -333,14 +335,14 @@ export default function InventorySection({
                   setFormState((prev) => ({ ...prev, quantity: Number(event.target.value) }))
                 }
                 className={inputClass}
-                placeholder="Quantity"
+                placeholder={t("inventory.form.quantity")}
               />
               <input
                 required
                 value={formState.unit}
                 onChange={(event) => setFormState((prev) => ({ ...prev, unit: event.target.value }))}
                 className={inputClass}
-                placeholder="Unit"
+                placeholder={t("inventory.form.unit")}
               />
             </div>
             <input
@@ -353,7 +355,7 @@ export default function InventorySection({
               value={formState.notes}
               onChange={(event) => setFormState((prev) => ({ ...prev, notes: event.target.value }))}
               className={inputClass}
-              placeholder="Notes (optional)"
+              placeholder={t("inventory.form.notes")}
             />
             <button
               type="submit"
@@ -362,11 +364,11 @@ export default function InventorySection({
             >
               {editingItemId !== null
                 ? updateItemMutation.isPending
-                  ? "Saving..."
-                  : "Save changes"
+                  ? t("common.saving")
+                  : t("common.saveChanges")
                 : addItemMutation.isPending
-                  ? "Adding..."
-                  : "Add item"}
+                  ? t("common.adding")
+                  : t("inventory.form.add")}
             </button>
             {editingItemId !== null && (
               <button
@@ -375,26 +377,26 @@ export default function InventorySection({
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <Undo2 className="h-4 w-4" />
-                Cancel edit
+                {t("common.cancelEdit")}
               </button>
             )}
             {addItemMutation.isError && (
-              <p className="text-sm text-rose-600 dark:text-rose-300">Could not add item. Check backend availability.</p>
+              <p className="text-sm text-rose-600 dark:text-rose-300">{t("inventory.error.add")}</p>
             )}
             {updateItemMutation.isError && (
-              <p className="text-sm text-rose-600 dark:text-rose-300">Could not update item. Try again.</p>
+              <p className="text-sm text-rose-600 dark:text-rose-300">{t("inventory.error.update")}</p>
             )}
             {deleteItemMutation.isError && (
-              <p className="text-sm text-rose-600 dark:text-rose-300">Could not delete item. Try again.</p>
+              <p className="text-sm text-rose-600 dark:text-rose-300">{t("inventory.error.delete")}</p>
             )}
           </form>
         </div>
 
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-6">
-          <h2 className="text-xl font-semibold">Stock distribution</h2>
+          <h2 className="text-xl font-semibold">{t("inventory.chart.title")}</h2>
           <div className="mt-4 h-64">
             {locationDistribution.length === 0 ? (
-              <p className="text-slate-600 dark:text-slate-300">Add a few items to see the chart.</p>
+              <p className="text-slate-600 dark:text-slate-300">{t("inventory.chart.empty")}</p>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>

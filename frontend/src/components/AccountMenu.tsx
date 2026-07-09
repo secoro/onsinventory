@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CircleUser, Info, KeyRound, LogOut, Menu, MessageSquare, Moon, Sun, Trash2, UserPlus, X } from "lucide-react";
+import { useI18n } from "../i18n";
 
-const itemClass =
+export const itemClass =
   "flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800";
 
-function Dropdown({
+export function Dropdown({
   label,
   icon,
   openIcon,
@@ -41,7 +42,7 @@ function Dropdown({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-label={open ? `Close ${label}` : `Open ${label}`}
+        aria-label={label}
         aria-expanded={open}
         className="inline-flex items-center rounded-lg border border-slate-300 dark:border-slate-700 p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
       >
@@ -75,6 +76,7 @@ export default function AccountMenu({
   onLogout: () => void;
   onDeleteAccount: () => void;
 }) {
+  const { t } = useI18n();
   const select = (close: () => void, action: () => void) => () => {
     close();
     action();
@@ -82,12 +84,12 @@ export default function AccountMenu({
 
   return (
     <div className="flex items-center gap-2">
-      <Dropdown label="profile menu" icon={<CircleUser className="h-5 w-5" />}>
+      <Dropdown label={t("menu.profile")} icon={<CircleUser className="h-5 w-5" />}>
         {(close) => (
           <>
             <button type="button" onClick={select(close, onChangePassword)} className={itemClass}>
               <KeyRound className="h-3.5 w-3.5" />
-              Change password
+              {t("menu.changePassword")}
             </button>
             <div className="border-t border-slate-200 dark:border-slate-700" />
             <button
@@ -96,33 +98,33 @@ export default function AccountMenu({
               className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              Delete account
+              {t("menu.deleteAccount")}
             </button>
           </>
         )}
       </Dropdown>
-      <Dropdown label="menu" icon={<Menu className="h-5 w-5" />} openIcon={<X className="h-5 w-5" />}>
+      <Dropdown label={t("menu.menu")} icon={<Menu className="h-5 w-5" />} openIcon={<X className="h-5 w-5" />}>
         {(close) => (
           <>
             <button type="button" onClick={select(close, onToggleDark)} className={itemClass}>
               {dark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-              {dark ? "Light mode" : "Dark mode"}
+              {dark ? t("menu.lightMode") : t("menu.darkMode")}
             </button>
             <button type="button" onClick={select(close, onInvite)} className={itemClass}>
               <UserPlus className="h-3.5 w-3.5" />
-              Invite to household
+              {t("menu.invite")}
             </button>
             <button type="button" onClick={select(close, onFeedback)} className={itemClass}>
               <MessageSquare className="h-3.5 w-3.5" />
-              Send feedback
+              {t("menu.feedback")}
             </button>
             <button type="button" onClick={select(close, onAbout)} className={itemClass}>
               <Info className="h-3.5 w-3.5" />
-              About
+              {t("menu.about")}
             </button>
             <button type="button" onClick={select(close, onLogout)} className={itemClass}>
               <LogOut className="h-3.5 w-3.5" />
-              Logout
+              {t("menu.logout")}
             </button>
           </>
         )}

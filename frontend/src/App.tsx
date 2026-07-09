@@ -4,8 +4,10 @@ import { motion } from "framer-motion";
 import { Calendar, Package, Sparkles } from "lucide-react";
 import { AuthResponse, clearToken, getAuthConfig, getMe, storeToken } from "./api/client";
 import AccountMenu from "./components/AccountMenu";
+import LanguageSwitcher from "./components/LanguageSwitcher";
 import { AboutModal, ChangePasswordModal, DeleteAccountModal, FeedbackModal, InviteHouseholdModal } from "./components/modals";
 import { useRecommendationsQuery } from "./hooks/queries";
+import { useI18n } from "./i18n";
 import { topRecommendation } from "./lib/recommendation";
 import DashboardPage from "./pages/Dashboard";
 import MealPlannerPage from "./pages/MealPlanner";
@@ -14,6 +16,7 @@ import { AuthUser } from "./types";
 
 export default function App() {
   const queryClient = useQueryClient();
+  const { t } = useI18n();
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [page, setPage] = useState<"home" | "planner">("home");
@@ -99,7 +102,7 @@ export default function App() {
   if (!authChecked) {
     return (
       <div className="flex min-h-screen items-center justify-center text-slate-500 dark:text-slate-400">
-        Loading...
+        {t("common.loading")}
       </div>
     );
   }
@@ -140,36 +143,39 @@ export default function App() {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-sm uppercase tracking-[0.2em] text-brand-600 dark:text-brand-100">ONS Inventory</p>
-              <h1 className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">Welcome, {authUser.firstName}!</h1>
+              <h1 className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{t("header.welcome", { name: authUser.firstName })}</h1>
               <p className="mt-2 text-slate-600 dark:text-slate-300">
-                Track pantry, fridge, and freezer stock and get recipe ideas before ingredients expire.
+                {t("header.tagline")}
               </p>
               {authUser.householdName && (
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{authUser.householdName}</p>
               )}
             </div>
             <div className="flex flex-col items-end gap-3">
-              <AccountMenu
-                dark={dark}
-                onToggleDark={() => setDark((d) => !d)}
-                onInvite={() => setShowInviteHousehold(true)}
-                onChangePassword={() => setShowChangePassword(true)}
-                onFeedback={() => setShowFeedback(true)}
-                onAbout={() => setShowAbout(true)}
-                onLogout={handleLogout}
-                onDeleteAccount={() => setShowDeleteAccount(true)}
-              />
+              <div className="flex items-center gap-2">
+                <LanguageSwitcher />
+                <AccountMenu
+                  dark={dark}
+                  onToggleDark={() => setDark((d) => !d)}
+                  onInvite={() => setShowInviteHousehold(true)}
+                  onChangePassword={() => setShowChangePassword(true)}
+                  onFeedback={() => setShowFeedback(true)}
+                  onAbout={() => setShowAbout(true)}
+                  onLogout={handleLogout}
+                  onDeleteAccount={() => setShowDeleteAccount(true)}
+                />
+              </div>
               <div className="rounded-xl bg-brand-100 dark:bg-brand-600/20 px-4 py-3 text-sm text-brand-800 dark:text-brand-50">
                 {topMatch ? (
                   <>
-                    <div className="font-medium">Top suggestion</div>
+                    <div className="font-medium">{t("header.topSuggestion")}</div>
                     <div className="mt-1 flex items-center gap-2">
                       <Sparkles className="h-4 w-4" />
                       {topMatch.recipe.name} ({topMatch.matchPercentage}%)
                     </div>
                   </>
                 ) : (
-                  <div className="font-medium">Add inventory to unlock recommendations</div>
+                  <div className="font-medium">{t("header.noSuggestion")}</div>
                 )}
               </div>
             </div>
@@ -185,7 +191,7 @@ export default function App() {
             }`}
           >
             <Package className="h-4 w-4" />
-            Inventory
+            {t("nav.inventory")}
           </button>
           <button
             type="button"
@@ -195,7 +201,7 @@ export default function App() {
             }`}
           >
             <Calendar className="h-4 w-4" />
-            Meal Planner
+            {t("nav.mealPlanner")}
           </button>
         </nav>
 

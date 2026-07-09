@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { recommendationLabel, topRecommendation } from "./recommendation";
+import { recommendationLabelKey, topRecommendation } from "./recommendation";
 
 describe("recommendation helpers", () => {
-  it("returns useful labels by match percentage", () => {
-    expect(recommendationLabel(95)).toBe("Cook now");
-    expect(recommendationLabel(70)).toBe("Almost there");
-    expect(recommendationLabel(20)).toBe("Need groceries");
+  it("returns useful label keys by match percentage", () => {
+    expect(recommendationLabelKey(95)).toBe("recommendations.cookNow");
+    expect(recommendationLabelKey(70)).toBe("recommendations.almostThere");
+    expect(recommendationLabelKey(20)).toBe("recommendations.needGroceries");
   });
 
   it("returns top recommendation by percentage", () => {

@@ -8,13 +8,18 @@ import {
   register,
   resetPassword
 } from "../api/client";
+import LanguageSwitcher from "../components/LanguageSwitcher";
+import { useI18n } from "../i18n";
 import { inputClass } from "../lib/ui";
 
 function AuthShell({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/80 p-8 shadow-glow">
-        <p className="text-sm uppercase tracking-[0.2em] text-brand-600 dark:text-brand-100">ONS Inventory</p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm uppercase tracking-[0.2em] text-brand-600 dark:text-brand-100">ONS Inventory</p>
+          <LanguageSwitcher />
+        </div>
         <h1 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">{title}</h1>
         {children}
       </div>
@@ -31,6 +36,7 @@ export function LoginPage({
   onShowRegister: () => void;
   onShowForgotPassword: () => void;
 }) {
+  const { t } = useI18n();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
@@ -45,7 +51,7 @@ export function LoginPage({
   };
 
   return (
-    <AuthShell title="Sign in">
+    <AuthShell title={t("auth.signIn")}>
       <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
         <input
           required
@@ -53,7 +59,7 @@ export function LoginPage({
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           className={inputClass}
-          placeholder="Username"
+          placeholder={t("auth.username")}
         />
         <input
           required
@@ -61,25 +67,25 @@ export function LoginPage({
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className={inputClass}
-          placeholder="Password"
+          placeholder={t("auth.password")}
         />
         {loginMutation.isError && (
-          <p className="text-sm text-rose-600 dark:text-rose-300">Incorrect username or password.</p>
+          <p className="text-sm text-rose-600 dark:text-rose-300">{t("auth.loginError")}</p>
         )}
         <button
           type="submit"
           disabled={loginMutation.isPending}
           className="rounded-lg bg-brand-600 px-4 py-2 font-medium text-white transition hover:bg-brand-500 disabled:opacity-50"
         >
-          {loginMutation.isPending ? "Signing in..." : "Sign in"}
+          {loginMutation.isPending ? t("auth.signingIn") : t("auth.signIn")}
         </button>
       </form>
       <div className="mt-4 flex items-center justify-between text-sm">
         <button type="button" onClick={onShowForgotPassword} className="text-brand-600 dark:text-brand-100 hover:underline">
-          Forgot password?
+          {t("auth.forgotPassword")}
         </button>
         <button type="button" onClick={onShowRegister} className="text-brand-600 dark:text-brand-100 hover:underline">
-          Create an account
+          {t("auth.createAccount")}
         </button>
       </div>
     </AuthShell>
@@ -95,6 +101,7 @@ export function RegisterPage({
   onAuthenticated: (data: AuthResponse) => void;
   onBackToLogin: () => void;
 }) {
+  const { t } = useI18n();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -131,17 +138,17 @@ export function RegisterPage({
   };
 
   return (
-    <AuthShell title="Create an account">
+    <AuthShell title={t("auth.createAccount")}>
       {inviteToken && invitePreview && (
         <p className="mt-3 rounded-lg bg-brand-100 dark:bg-brand-600/20 px-3 py-2 text-sm text-brand-800 dark:text-brand-50">
           {invitePreview === "invalid"
-            ? "This invite link is invalid or has expired. You can still create your own household below."
-            : `You're joining "${invitePreview.householdName}".`}
+            ? t("auth.inviteInvalid")
+            : t("auth.joiningHousehold", { household: invitePreview.householdName })}
         </p>
       )}
       {!inviteToken && (
         <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
-          A new household will be created for you — you can invite others to it afterward.
+          {t("auth.newHousehold")}
         </p>
       )}
       <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
@@ -152,14 +159,14 @@ export function RegisterPage({
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
             className={inputClass}
-            placeholder="First name"
+            placeholder={t("auth.firstName")}
           />
           <input
             required
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
             className={inputClass}
-            placeholder="Last name"
+            placeholder={t("auth.lastName")}
           />
         </div>
         <input
@@ -167,7 +174,7 @@ export function RegisterPage({
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           className={inputClass}
-          placeholder="Username"
+          placeholder={t("auth.username")}
         />
         <input
           required
@@ -177,7 +184,7 @@ export function RegisterPage({
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className={inputClass}
-          placeholder="Email address"
+          placeholder={t("form.email")}
         />
         <input
           required
@@ -185,7 +192,7 @@ export function RegisterPage({
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className={inputClass}
-          placeholder="Password (min. 8 characters)"
+          placeholder={t("auth.passwordMin")}
         />
         <input
           required
@@ -193,9 +200,9 @@ export function RegisterPage({
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           className={`${inputClass} ${mismatch ? "border-rose-500 bg-rose-50 dark:bg-rose-950/30" : ""}`}
-          placeholder="Confirm password"
+          placeholder={t("auth.confirmPassword")}
         />
-        {mismatch && <p className="text-sm text-rose-600 dark:text-rose-300">Passwords do not match.</p>}
+        {mismatch && <p className="text-sm text-rose-600 dark:text-rose-300">{t("form.passwordMismatch")}</p>}
         {registerMutation.isError && (
           <p className="text-sm text-rose-600 dark:text-rose-300">{registerMutation.error.message}</p>
         )}
@@ -204,17 +211,18 @@ export function RegisterPage({
           disabled={registerMutation.isPending || mismatch}
           className="rounded-lg bg-brand-600 px-4 py-2 font-medium text-white transition hover:bg-brand-500 disabled:opacity-50"
         >
-          {registerMutation.isPending ? "Creating account..." : "Create account"}
+          {registerMutation.isPending ? t("auth.creatingAccount") : t("auth.createAccountButton")}
         </button>
       </form>
       <button type="button" onClick={onBackToLogin} className="mt-4 text-sm text-brand-600 dark:text-brand-100 hover:underline">
-        Back to sign in
+        {t("auth.backToSignIn")}
       </button>
     </AuthShell>
   );
 }
 
 export function ForgotPasswordPage({ onBackToLogin }: { onBackToLogin: () => void }) {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
 
   const forgotPasswordMutation = useMutation({
@@ -227,15 +235,15 @@ export function ForgotPasswordPage({ onBackToLogin }: { onBackToLogin: () => voi
   };
 
   return (
-    <AuthShell title="Reset your password">
+    <AuthShell title={t("auth.resetTitle")}>
       {forgotPasswordMutation.isSuccess ? (
         <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
-          If an account exists for that email, we've sent a link to reset your password.
+          {t("auth.resetSent")}
         </p>
       ) : (
         <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
           <p className="text-sm text-slate-600 dark:text-slate-300">
-            Enter your email and we'll send you a link to reset your password.
+            {t("auth.resetDescription")}
           </p>
           <input
             required
@@ -246,25 +254,26 @@ export function ForgotPasswordPage({ onBackToLogin }: { onBackToLogin: () => voi
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className={inputClass}
-            placeholder="Email address"
+            placeholder={t("form.email")}
           />
           <button
             type="submit"
             disabled={forgotPasswordMutation.isPending}
             className="rounded-lg bg-brand-600 px-4 py-2 font-medium text-white transition hover:bg-brand-500 disabled:opacity-50"
           >
-            {forgotPasswordMutation.isPending ? "Sending..." : "Send reset link"}
+            {forgotPasswordMutation.isPending ? t("common.sending") : t("auth.sendResetLink")}
           </button>
         </form>
       )}
       <button type="button" onClick={onBackToLogin} className="mt-4 text-sm text-brand-600 dark:text-brand-100 hover:underline">
-        Back to sign in
+        {t("auth.backToSignIn")}
       </button>
     </AuthShell>
   );
 }
 
 export function ResetPasswordPage({ token, onBackToLogin }: { token: string | null; onBackToLogin: () => void }) {
+  const { t } = useI18n();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const mismatch = confirmPassword.length > 0 && newPassword !== confirmPassword;
@@ -280,12 +289,12 @@ export function ResetPasswordPage({ token, onBackToLogin }: { token: string | nu
   };
 
   return (
-    <AuthShell title="Choose a new password">
+    <AuthShell title={t("auth.chooseNewPassword")}>
       {!token ? (
-        <p className="mt-4 text-sm text-rose-600 dark:text-rose-300">This reset link is missing its token.</p>
+        <p className="mt-4 text-sm text-rose-600 dark:text-rose-300">{t("auth.resetMissingToken")}</p>
       ) : resetPasswordMutation.isSuccess ? (
         <p className="mt-4 text-sm text-emerald-600 dark:text-emerald-300">
-          Password updated. You can now sign in with your new password.
+          {t("auth.resetSuccess")}
         </p>
       ) : (
         <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
@@ -296,7 +305,7 @@ export function ResetPasswordPage({ token, onBackToLogin }: { token: string | nu
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             className={inputClass}
-            placeholder="New password (min. 8 characters)"
+            placeholder={t("auth.newPasswordMin")}
           />
           <input
             required
@@ -304,9 +313,9 @@ export function ResetPasswordPage({ token, onBackToLogin }: { token: string | nu
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             className={`${inputClass} ${mismatch ? "border-rose-500 bg-rose-50 dark:bg-rose-950/30" : ""}`}
-            placeholder="Confirm new password"
+            placeholder={t("form.confirmNewPassword")}
           />
-          {mismatch && <p className="text-sm text-rose-600 dark:text-rose-300">Passwords do not match.</p>}
+          {mismatch && <p className="text-sm text-rose-600 dark:text-rose-300">{t("form.passwordMismatch")}</p>}
           {resetPasswordMutation.isError && (
             <p className="text-sm text-rose-600 dark:text-rose-300">{resetPasswordMutation.error.message}</p>
           )}
@@ -315,12 +324,12 @@ export function ResetPasswordPage({ token, onBackToLogin }: { token: string | nu
             disabled={resetPasswordMutation.isPending || mismatch}
             className="rounded-lg bg-brand-600 px-4 py-2 font-medium text-white transition hover:bg-brand-500 disabled:opacity-50"
           >
-            {resetPasswordMutation.isPending ? "Saving..." : "Save new password"}
+            {resetPasswordMutation.isPending ? t("common.saving") : t("auth.saveNewPassword")}
           </button>
         </form>
       )}
       <button type="button" onClick={onBackToLogin} className="mt-4 text-sm text-brand-600 dark:text-brand-100 hover:underline">
-        Back to sign in
+        {t("auth.backToSignIn")}
       </button>
     </AuthShell>
   );
