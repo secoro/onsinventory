@@ -1,13 +1,14 @@
+import type { TranslationKey } from "../i18n";
 import { RecipeRecommendation } from "../types";
 
-export function recommendationLabel(matchPercentage: number): string {
+export function recommendationLabelKey(matchPercentage: number): TranslationKey {
   if (matchPercentage >= 90) {
-    return "Cook now";
+    return "recommendations.cookNow";
   }
   if (matchPercentage >= 60) {
-    return "Almost there";
+    return "recommendations.almostThere";
   }
-  return "Need groceries";
+  return "recommendations.needGroceries";
 }
 
 export function topRecommendation(
