@@ -27,6 +27,16 @@ jobs:
   deploy:
     runs-on: self-hosted
     steps:
+      # TEMP (remove after one successful run): the pre-1.4 caddy container bind-mounted
+      # backend/deploy/Caddyfile from this workspace; after caddy was removed from the repo,
+      # the Docker daemon recreated the missing mount source as a root-owned directory on
+      # restart, which the runner user cannot delete — so checkout fails with EACCES.
+      # Remove the orphaned container first so it can't recreate the directory again.
+      - name: Remove stale caddy leftovers from old bind mount
+        run: |
+          docker rm -f onsinventory-caddy 2>/dev/null || true
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine rm -rf /w/backend/deploy
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -51,7 +61,7 @@ jobs:
       - name: Build and deploy
         working-directory: backend
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi up -d --build
+          docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi up -d --build --remove-orphans
 
       - name: Clean up old images
         run: docker image prune -f
