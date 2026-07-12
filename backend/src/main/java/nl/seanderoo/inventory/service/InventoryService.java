@@ -2,6 +2,7 @@ package nl.seanderoo.inventory.service;
 
 import nl.seanderoo.inventory.dto.CookResultDTO;
 import nl.seanderoo.inventory.dto.InventoryItemDTO;
+import nl.seanderoo.inventory.dto.MakeableIngredientDTO;
 import nl.seanderoo.inventory.dto.RecipeAvailabilityDTO;
 import nl.seanderoo.inventory.exception.BadRequestException;
 import nl.seanderoo.inventory.exception.ResourceNotFoundException;
@@ -16,6 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
@@ -152,12 +155,22 @@ public class InventoryService {
         double scale = scale(recipe.getServings(), requestedServings);
         List<String> insufficient = new ArrayList<>();
         List<String> missing = new ArrayList<>();
+        List<MakeableIngredientDTO> makeable = new ArrayList<>();
 
         for (RecipeIngredient ingredient : recipe.getIngredients()) {
             if (isAlwaysAvailable(ingredient)) continue;
             List<InventoryItem> candidates = findCandidates(ingredient.getIngredientName());
             if (candidates.isEmpty()) {
-                missing.add(ingredient.getIngredientName());
+                Recipe subRecipe = findMakeableSubRecipe(ingredient.getIngredientName(), new HashSet<>(Set.of(recipe.getId())));
+                if (subRecipe != null) {
+                    makeable.add(MakeableIngredientDTO.builder()
+                            .ingredientName(ingredient.getIngredientName())
+                            .recipeId(subRecipe.getId())
+                            .recipeName(subRecipe.getName())
+                            .build());
+                } else {
+                    missing.add(ingredient.getIngredientName());
+                }
                 continue;
             }
             if (containsHerb(candidates)) continue;
@@ -178,7 +191,46 @@ public class InventoryService {
                 .canCook(insufficient.isEmpty() && missing.isEmpty())
                 .insufficientIngredients(insufficient)
                 .missingIngredients(missing)
+                .makeableIngredients(makeable)
                 .build();
+    }
+
+    /**
+     * Finds a household recipe that produces the given ingredient (matched by name, exact match
+     * preferred) and can itself be made from current stock — so a missing ingredient like
+     * "tzatziki" counts as makeable when there is a cookable Tzatziki recipe.
+     * {@code visited} holds recipe ids already being checked, to break recipe cycles.
+     */
+    private Recipe findMakeableSubRecipe(String ingredientName, Set<Long> visited) {
+        String needle = ingredientName.toLowerCase().trim();
+        return recipeRepository.findAllByHouseholdId(currentHouseholdProvider.getHouseholdId()).stream()
+                .filter(recipe -> !visited.contains(recipe.getId()))
+                .filter(recipe -> {
+                    String name = recipe.getName().toLowerCase().trim();
+                    return name.contains(needle) || needle.contains(name);
+                })
+                .sorted(Comparator.comparing(recipe -> !recipe.getName().trim().equalsIgnoreCase(needle)))
+                .filter(recipe -> canMake(recipe, visited))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /** Whether one batch of the recipe (at its base servings) can be made from current stock. */
+    private boolean canMake(Recipe recipe, Set<Long> visited) {
+        visited.add(recipe.getId());
+        for (RecipeIngredient ingredient : recipe.getIngredients()) {
+            if (isAlwaysAvailable(ingredient)) continue;
+            List<InventoryItem> candidates = findCandidates(ingredient.getIngredientName());
+            if (candidates.isEmpty()) {
+                if (findMakeableSubRecipe(ingredient.getIngredientName(), visited) == null) return false;
+                continue;
+            }
+            if (containsHerb(candidates)) continue;
+
+            IngredientMatch match = matchIngredient(candidates, ingredient, ingredient.getQuantity());
+            if (match.item().getQuantity() < match.neededQuantity()) return false;
+        }
+        return true;
     }
 
     public CookResultDTO cookRecipe(Long recipeId, int requestedServings, List<String> skippedIngredients) {

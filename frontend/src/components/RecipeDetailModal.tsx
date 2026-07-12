@@ -41,6 +41,7 @@ export default function RecipeDetailModal({ recipe, onClose }: { recipe: Recipe;
     Array.from(skippedIngredients).some((skip) => warning.toLowerCase().includes(skip.toLowerCase()));
   const filteredInsufficient = (availability?.insufficientIngredients ?? []).filter((s) => !isSkipped(s));
   const filteredMissing = (availability?.missingIngredients ?? []).filter((s) => !isSkipped(s));
+  const filteredMakeable = (availability?.makeableIngredients ?? []).filter((m) => !isSkipped(m.ingredientName));
   const canCook = !checkingAvailability && availability != null
     && filteredInsufficient.length === 0 && filteredMissing.length === 0;
 
@@ -167,13 +168,18 @@ export default function RecipeDetailModal({ recipe, onClose }: { recipe: Recipe;
               <UtensilsCrossed className="h-4 w-4" />
               {cookRecipeMutation.isPending ? t("detail.cooking") : t("detail.cooked")}
             </button>
-            {(filteredInsufficient.length > 0 || filteredMissing.length > 0) && (
+            {(filteredInsufficient.length > 0 || filteredMissing.length > 0 || filteredMakeable.length > 0) && (
               <div className="space-y-1 text-sm">
                 {filteredInsufficient.map((line) => (
                   <p key={line} className="text-amber-600 dark:text-amber-300">· {t("recommendations.notEnough", { items: line })}</p>
                 ))}
                 {filteredMissing.map((line) => (
                   <p key={line} className="text-rose-600 dark:text-rose-300">· {t("recommendations.missing", { items: line })}</p>
+                ))}
+                {filteredMakeable.map((m) => (
+                  <p key={m.ingredientName} className="text-sky-600 dark:text-sky-300">
+                    · {t("detail.makeable", { ingredient: m.ingredientName, recipe: m.recipeName })}
+                  </p>
                 ))}
                 <p className="text-slate-500 dark:text-slate-400 text-xs pt-1">
                   {t("detail.skipHint")}

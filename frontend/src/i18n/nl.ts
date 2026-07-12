@@ -105,6 +105,7 @@ export const nl: Record<keyof typeof en, string> = {
   "detail.cooking": "Voorraad bijwerken...",
   "detail.cooked": "Dit gekookt!",
   "detail.skipHint": "Klik op × naast een ingrediënt hierboven om het deze keer over te slaan.",
+  "detail.makeable": "{ingredient}: niet op voorraad, maar je kunt het maken met je recept \"{recipe}\" — of kant-en-klaar kopen.",
   "detail.error.cook": "Kon voorraad niet bijwerken. Probeer opnieuw.",
 
   "invite.sent": "Uitnodiging verstuurd naar {email}.",
