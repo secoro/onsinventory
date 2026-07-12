@@ -103,6 +103,7 @@ export const en = {
   "detail.cooking": "Updating inventory...",
   "detail.cooked": "Cooked this!",
   "detail.skipHint": "Click × next to an ingredient above to skip it for this cook.",
+  "detail.makeable": "{ingredient}: not in stock, but you can make it with your \"{recipe}\" recipe — or buy it ready-made.",
   "detail.error.cook": "Could not update inventory. Try again.",
 
   "invite.sent": "Invite sent to {email}.",

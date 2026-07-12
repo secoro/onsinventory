@@ -106,6 +106,7 @@ export const es: Record<keyof typeof en, string> = {
   "detail.cooking": "Actualizando inventario...",
   "detail.cooked": "¡Ya lo cociné!",
   "detail.skipHint": "Haz clic en la × junto a un ingrediente arriba para omitirlo por esta vez.",
+  "detail.makeable": "{ingredient}: no está en stock, pero puedes prepararlo con tu receta \"{recipe}\" — o comprarlo ya hecho.",
   "detail.error.cook": "No se pudo actualizar el inventario. Intenta de nuevo.",
 
   "invite.sent": "Invitación enviada a {email}.",

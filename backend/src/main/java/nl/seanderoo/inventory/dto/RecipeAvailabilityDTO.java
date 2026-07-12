@@ -15,4 +15,5 @@ public class RecipeAvailabilityDTO {
     private boolean canCook;
     private List<String> insufficientIngredients;
     private List<String> missingIngredients;
+    private List<MakeableIngredientDTO> makeableIngredients;
 }

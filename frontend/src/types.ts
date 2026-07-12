@@ -62,10 +62,17 @@ export type CookResult = {
   unmatched: string[];
 };
 
+export type MakeableIngredient = {
+  ingredientName: string;
+  recipeId: number;
+  recipeName: string;
+};
+
 export type RecipeAvailability = {
   canCook: boolean;
   insufficientIngredients: string[];
   missingIngredients: string[];
+  makeableIngredients: MakeableIngredient[];
 };
 
 export type RecipeRecommendation = {
