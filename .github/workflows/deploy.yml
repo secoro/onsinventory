@@ -51,7 +51,7 @@ jobs:
       - name: Build and deploy
         working-directory: backend
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi up -d --build
+          docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml --env-file .env.pi up -d --build --remove-orphans
 
       - name: Clean up old images
         run: docker image prune -f
