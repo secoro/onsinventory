@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { InventoryItem } from "../types";
-import { isExpiring } from "./inventory";
+import { isExpiring, roundQuantity, stepForUnit } from "./inventory";
 
 function item(overrides: Partial<InventoryItem>): InventoryItem {
   return {
@@ -31,5 +31,33 @@ describe("isExpiring", () => {
 
   it("returns false when neither flag is present", () => {
     expect(isExpiring(item({}))).toBe(false);
+  });
+});
+
+describe("stepForUnit", () => {
+  it("steps countable units by one", () => {
+    expect(stepForUnit("pieces")).toBe(1);
+    expect(stepForUnit("cloves")).toBe(1);
+  });
+
+  it("steps bulk weight/volume units by a usable chunk", () => {
+    expect(stepForUnit("grams")).toBe(25);
+    expect(stepForUnit("ml")).toBe(50);
+    expect(stepForUnit("kg")).toBe(0.25);
+  });
+
+  it("is case-insensitive and trims whitespace", () => {
+    expect(stepForUnit(" Grams ")).toBe(25);
+  });
+
+  it("falls back to one for unknown units", () => {
+    expect(stepForUnit("sprinkle")).toBe(1);
+  });
+});
+
+describe("roundQuantity", () => {
+  it("rounds away floating point drift to two decimals", () => {
+    expect(roundQuantity(0.1 + 0.2)).toBe(0.3);
+    expect(roundQuantity(1000 - 25)).toBe(975);
   });
 });

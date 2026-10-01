@@ -66,6 +66,9 @@ export const nl: Record<keyof typeof en, string> = {
   "inventory.error.add": "Kon artikel niet toevoegen. Controleer of de backend bereikbaar is.",
   "inventory.error.update": "Kon artikel niet bijwerken. Probeer opnieuw.",
   "inventory.error.delete": "Kon artikel niet verwijderen. Probeer opnieuw.",
+  "inventory.decrease": "Minder",
+  "inventory.increase": "Meer",
+  "inventory.usedUp": "Op",
   "inventory.chart.title": "Voorraadverdeling",
   "inventory.chart.empty": "Voeg een paar artikelen toe om de grafiek te zien.",
 

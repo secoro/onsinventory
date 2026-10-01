@@ -1,10 +1,10 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Refrigerator, Trash2, Undo2, X } from "lucide-react";
+import { Minus, PackageX, Pencil, Plus, Refrigerator, Trash2, Undo2, X } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { addInventoryItem, deleteInventoryItem, updateInventoryItem } from "../api/client";
 import { useI18n } from "../i18n";
-import { isExpiring } from "../lib/inventory";
+import { isExpiring, roundQuantity, stepForUnit } from "../lib/inventory";
 import { inputClass } from "../lib/ui";
 import { InventoryItem, Location } from "../types";
 
@@ -83,6 +83,37 @@ export default function InventorySection({
     mutationFn: deleteInventoryItem,
     onSuccess: invalidate
   });
+
+  // One tap/click to nudge a quantity up or down, or clear an item once it hits zero -
+  // the fast path for logging the everyday use that never goes through "cook this recipe".
+  const adjustQuantityMutation = useMutation({
+    mutationFn: async ({ item, nextQuantity }: { item: InventoryItem; nextQuantity: number }) => {
+      if (nextQuantity <= 0) await deleteInventoryItem(item.id);
+      else await updateInventoryItem(item.id, { quantity: nextQuantity });
+    },
+    onMutate: async ({ item, nextQuantity }) => {
+      await queryClient.cancelQueries({ queryKey: ["inventory"] });
+      const previous = queryClient.getQueryData<InventoryItem[]>(["inventory"]);
+      queryClient.setQueryData<InventoryItem[]>(["inventory"], (old) =>
+        nextQuantity <= 0
+          ? (old ?? []).filter((i) => i.id !== item.id)
+          : (old ?? []).map((i) => (i.id === item.id ? { ...i, quantity: nextQuantity } : i))
+      );
+      return { previous };
+    },
+    onError: (_error, _variables, context?: { previous?: InventoryItem[] }) => {
+      if (context?.previous) queryClient.setQueryData(["inventory"], context.previous);
+    },
+    onSettled: invalidate
+  });
+
+  const adjustingItemId =
+    adjustQuantityMutation.isPending ? adjustQuantityMutation.variables?.item.id : null;
+
+  const adjustQuantity = (item: InventoryItem, direction: 1 | -1) => {
+    const nextQuantity = roundQuantity(item.quantity + direction * stepForUnit(item.unit));
+    adjustQuantityMutation.mutate({ item, nextQuantity });
+  };
 
   const filteredInventory = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -210,7 +241,7 @@ export default function InventorySection({
                   <div>
                     <p className="font-medium text-slate-900 dark:text-white">{item.name}</p>
                     <p className="text-sm text-slate-600 dark:text-slate-300">
-                      {item.quantity} {item.unit} · {item.category} · {item.location}
+                      {item.category} · {item.location}
                     </p>
                   </div>
                   <span
@@ -225,7 +256,41 @@ export default function InventorySection({
                     {item.expired ? t("inventory.status.expired") : isExpiring(item) ? t("inventory.status.expiring") : t("inventory.status.fresh")}
                   </span>
                 </div>
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => adjustQuantity(item, -1)}
+                      disabled={adjustingItemId === item.id}
+                      aria-label={t("inventory.decrease")}
+                      className="rounded-md bg-slate-200 dark:bg-slate-700 p-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-50"
+                    >
+                      <Minus className="h-3 w-3" />
+                    </button>
+                    <span className="min-w-[4.5rem] text-center text-sm tabular-nums text-slate-800 dark:text-slate-100">
+                      {item.quantity} {item.unit}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => adjustQuantity(item, 1)}
+                      disabled={adjustingItemId === item.id}
+                      aria-label={t("inventory.increase")}
+                      className="rounded-md bg-slate-200 dark:bg-slate-700 p-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-50"
+                    >
+                      <Plus className="h-3 w-3" />
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => adjustQuantityMutation.mutate({ item, nextQuantity: 0 })}
+                    disabled={adjustingItemId === item.id}
+                    className="inline-flex items-center gap-1 rounded-md bg-amber-500/20 px-2 py-1 text-xs text-amber-700 dark:text-amber-200 hover:bg-amber-500/30 disabled:opacity-50"
+                  >
+                    <PackageX className="h-3 w-3" />
+                    {t("inventory.usedUp")}
+                  </button>
+                </div>
+                <div className="mt-2 flex gap-2">
                   <button
                     type="button"
                     onClick={() => startEditingItem(item)}

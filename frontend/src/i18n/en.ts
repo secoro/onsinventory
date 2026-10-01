@@ -64,6 +64,9 @@ export const en = {
   "inventory.error.add": "Could not add item. Check backend availability.",
   "inventory.error.update": "Could not update item. Try again.",
   "inventory.error.delete": "Could not delete item. Try again.",
+  "inventory.decrease": "Decrease quantity",
+  "inventory.increase": "Increase quantity",
+  "inventory.usedUp": "Used up",
   "inventory.chart.title": "Stock distribution",
   "inventory.chart.empty": "Add a few items to see the chart.",
 

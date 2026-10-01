@@ -67,6 +67,9 @@ export const es: Record<keyof typeof en, string> = {
   "inventory.error.add": "No se pudo agregar el artículo. Verifica que el backend esté disponible.",
   "inventory.error.update": "No se pudo actualizar el artículo. Intenta de nuevo.",
   "inventory.error.delete": "No se pudo eliminar el artículo. Intenta de nuevo.",
+  "inventory.decrease": "Disminuir cantidad",
+  "inventory.increase": "Aumentar cantidad",
+  "inventory.usedUp": "Se acabó",
   "inventory.chart.title": "Distribución del inventario",
   "inventory.chart.empty": "Agrega algunos artículos para ver la gráfica.",
 
